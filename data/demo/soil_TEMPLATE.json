@@ -1,0 +1,10 @@
+{
+  "_como_usar": "Copiar para soil_<id do local>.json (por exemplo soil_chokwe.json) e preencher com os valores de 0 a 30 cm lidos em https://soilgrids.org. Deixar null no que não se souber.",
+  "ph": null,
+  "soc_gkg": null,
+  "n_gkg": null,
+  "clay_pct": null,
+  "sand_pct": null,
+  "silt_pct": null,
+  "source": "SoilGrids 2.0 (ISRIC), lido à mão no mapa"
+}

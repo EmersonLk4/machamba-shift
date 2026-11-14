@@ -1,0 +1,15 @@
+# Retenção de água típica por classe de textura.
+# fc = capacidade de campo, wp = ponto de emurchecimento, em m³/m³.
+# Pontos médios dos intervalos da Tabela 19 do FAO-56, transcritos de memória:
+# CONFIRMAR na tabela antes de citar (https://www.fao.org/3/X0490E/x0490e00.htm, capítulo 8).
+
+default_texture: franco      # usado quando não há dados de solo para o ponto
+
+textures:
+  arenoso:          {fc: 0.12, wp: 0.045}
+  areia_franca:     {fc: 0.15, wp: 0.065}
+  franco_arenoso:   {fc: 0.23, wp: 0.11}
+  franco:           {fc: 0.25, wp: 0.12}
+  franco_siltoso:   {fc: 0.29, wp: 0.15}
+  franco_argiloso:  {fc: 0.335, wp: 0.205}
+  argiloso:         {fc: 0.36, wp: 0.22}

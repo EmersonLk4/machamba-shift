@@ -1,0 +1,4 @@
+# Dependências de desenvolvimento: testes e verificação de estilo.
+-r requirements.txt
+pytest>=8
+ruff>=0.6

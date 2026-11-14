@@ -1,0 +1,10 @@
+crop_id,name_pt,scientific,family,group,is_legume,l_ini,l_dev,l_mid,l_late,kc_ini,kc_mid,kc_end,ky,ky_status,zr_m,p,tmin,topmin,topmax,tmax,ph_min,ph_max,ndfa,n_fix_kg_ha,n_export_kg_t,src_stages_kc,src_n,notes
+milho,Milho,Zea mays,Poaceae,cereal,0,20,35,40,30,0.30,1.20,0.35,1.25,tabelado_a_confirmar,,,,,,,,,,,,"FAO-56 T11 (Nigéria, húmido) e T12",,"Kc final 0,35 para grão seco no campo; ciclos de altitude chegam a 180 dias"
+mapira,Mapira (sorgo),Sorghum bicolor,Poaceae,cereal,0,20,35,40,30,0.30,1.05,0.55,0.90,tabelado_a_confirmar,,,,,,,,,,,,"FAO-56 T11 e T12",,"Kc médio tabelado 1,00-1,10; usado o ponto médio"
+mexoeira,Mexoeira,Pennisetum glaucum,Poaceae,cereal,0,15,25,40,25,0.30,1.00,0.30,1.00,hipotese,,,,,,,,,,,,"FAO-56 T11 (Paquistão) e T12",,"Sem Ky tabelado"
+feijao_vulgar,Feijão vulgar,Phaseolus vulgaris,Fabaceae,leguminosa,1,20,30,40,20,0.40,1.15,0.35,1.15,tabelado_a_confirmar,,,,,,,,,38,29,,"FAO-56 T11 e T12","Peoples et al. 2021 (médias África)","Fixa pouco N"
+feijao_nhemba,Feijão-nhemba,Vigna unguiculata,Fabaceae,leguminosa,1,20,30,30,20,0.40,1.05,0.35,1.00,hipotese,,,,,,,,,62,47,,"FAO-56 T11 e T12","Peoples et al. 2021 (médias África)","Kc final tabelado 0,60-0,35; usado 0,35 (colheita seca). Sem Ky tabelado"
+amendoim,Amendoim,Arachis hypogaea,Fabaceae,leguminosa,1,25,35,45,25,0.40,1.15,0.60,0.70,tabelado_a_confirmar,,,,,,,,,62,,,"FAO-56 T11 (África Ocidental) e T12","Peoples et al. 2021 (%Ndfa do grupo)","N fixado em kg/ha por preencher"
+soja,Soja,Glycine max,Fabaceae,leguminosa,1,15,15,40,15,0.40,1.15,0.50,0.85,tabelado_a_confirmar,,,,,,,,,61,,,"FAO-56 T11 (trópicos) e T12","Peoples et al. 2021 (%Ndfa do grupo)","Ciclo de 85 dias é curto; variedades locais têm 100-130 dias"
+gergelim,Gergelim,Sesamum indicum,Pedaliaceae,oleaginosa,0,20,30,40,20,0.35,1.10,0.25,1.00,hipotese,,,,,,,,,,,,"FAO-56 T11 (China) e T12",,"Sem Ky tabelado"
+batata_doce,Batata-doce,Ipomoea batatas,Convolvulaceae,raiz,0,15,30,50,30,0.50,1.15,0.65,1.00,hipotese,,,,,,,,,,,,"FAO-56 T11 (trópicos) e T12",,"Sem Ky tabelado"

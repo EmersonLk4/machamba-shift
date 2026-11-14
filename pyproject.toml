@@ -1,0 +1,18 @@
+[project]
+name = "machamba-shift"
+version = "0.1.0"
+description = "Apoio à decisão de rotação de culturas com dados NASA (Space Apps 2026, desafio Field Shift)"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["data/cache", "data/demo", "fixtures"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

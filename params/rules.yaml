@@ -1,0 +1,61 @@
+# Regras e constantes do motor de decisão.
+# Tudo o que aqui está é HIPÓTESE de trabalho até ser confirmado na literatura
+# (ver params/README.md). O motor lê estes valores; não os repitam no código.
+
+thresholds:
+  wrsi_stress: 80          # campanha com WRSI abaixo disto conta como "stress"
+  wrsi_failure: 50         # campanha com WRSI abaixo disto conta como "falha"
+  max_missing_fraction: 0.10   # campanha com mais dias em falta é excluída
+
+season:                    # campanha agrícola principal em Moçambique
+  start_month: 10
+  start_day: 1
+  end_month: 4
+  end_day: 30
+
+rotation:
+  horizon_seasons: 3
+  lambda_family_repeat: 0.05   # desconto no score por família repetida em anos seguidos
+  beta_legume_cereal: 0.20     # ganho de rendimento do cereal depois de leguminosa
+
+water_balance:
+  spin_up_days: 60
+  spin_up_kc: 0.3
+
+scenarios:
+  tercile: 0.3333              # fracção de campanhas no cenário seco e no favorável
+  seco_parametrico:
+    rain_factor: 0.8
+  quente:
+    delta_t_c: 2.0
+
+# Predefinições de pesos. Cada uma soma 1.
+weights:
+  equilibrado:
+    agua: 0.25
+    solo: 0.20
+    resiliencia: 0.25
+    rendimento: 0.15
+    margem: 0.10
+    diversidade: 0.05
+  seguranca_alimentar:
+    agua: 0.15
+    solo: 0.15
+    resiliencia: 0.45
+    rendimento: 0.15
+    margem: 0.05
+    diversidade: 0.05
+  recuperar_solo:
+    agua: 0.15
+    solo: 0.40
+    resiliencia: 0.20
+    rendimento: 0.10
+    margem: 0.05
+    diversidade: 0.10
+  rendimento:
+    agua: 0.10
+    solo: 0.10
+    resiliencia: 0.20
+    rendimento: 0.20
+    margem: 0.35
+    diversidade: 0.05

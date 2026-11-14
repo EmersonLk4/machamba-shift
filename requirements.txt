@@ -1,0 +1,12 @@
+# Dependências de execução (são as que o Streamlit Community Cloud instala).
+# Testado com Python 3.13; compatível com 3.11 e 3.12.
+streamlit>=1.50
+streamlit-folium>=0.23
+folium>=0.18
+plotly>=5.24
+pandas>=2.2
+numpy>=1.26
+pyarrow>=17
+requests>=2.32
+requests-cache>=1.2
+pyyaml>=6.0

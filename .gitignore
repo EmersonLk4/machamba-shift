@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Cache local de dados (regenerável). data/demo/ fica versionado de propósito.
+data/cache/*
+!data/cache/.gitkeep
+
+# Respostas brutas das APIs guardadas por scripts/check_apis.py
+fixtures/raw/*
+!fixtures/raw/.gitkeep
+
+# Segredos e configuração local
+.env
+.streamlit/secrets.toml
+
+# Editores e sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,36 @@
+# Locais de demonstração. Coordenadas aproximadas (vila-sede).
+# As datas de sementeira são hipóteses, ajustáveis na interface.
+
+sites:
+  - id: chokwe
+    name: Chókwè
+    province: Gaza
+    lat: -24.53
+    lon: 33.00
+    sow_month: 11
+    sow_day: 15
+    current_crop: milho
+    common_legume: feijao_nhemba
+    note: Semi-árido; caso principal da demonstração
+
+  - id: gurue
+    name: Gurué
+    province: Zambézia
+    lat: -15.47
+    lon: 36.98
+    sow_month: 12
+    sow_day: 1
+    current_crop: milho
+    common_legume: soja
+    note: Sub-húmido de altitude; contraste. Comparar a chuva com CHIRPS antes de mostrar
+
+  - id: sussundenga
+    name: Sussundenga
+    province: Manica
+    lat: -19.41
+    lon: 33.29
+    sow_month: 12
+    sow_day: 1
+    current_crop: milho
+    common_legume: feijao_vulgar
+    note: Intermédio; opcional
