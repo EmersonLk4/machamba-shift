@@ -111,11 +111,6 @@ A ferramenta caracteriza a zona, não o talhão: o clima vem de uma célula de c
 Os resultados são estimativas comparativas entre rotações. Não são previsões de produção
 nem substituem a análise de solo.
 
-## Documentos do projecto
-
-- Plano técnico e estratégico: https://claude.ai/artifact/FTrTAtuGBzpYv5qGyBBt1q
-- Quadro do plano de 48 horas: https://claude.ai/artifact/X8ccZz5AUQFwUphopCn9h9
-
 ## Licença
 
 MIT. Ver `LICENSE`.
