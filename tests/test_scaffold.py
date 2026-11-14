@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MODULES = [
     "data.clients.http", "data.clients.power", "data.clients.soilgrids",
     "data.clients.tesvis", "data.clients.openmeteo",
-    "data.paths", "data.climate", "data.soil",
+    "data.paths", "data.climate", "data.soil", "data.grid", "app.components.maps",
     "data.features", "data.scenarios", "data.validate",
     "app.components.charts",
     "engine.schemas", "engine.params", "engine.water_balance", "engine.nitrogen",
@@ -52,7 +52,7 @@ def run_page(relative: str):
 
 
 def test_home_without_climate_offers_the_download(data_home):
-    app = run_page("app/Home.py")
+    app = run_page("app/O_que_plantar.py")
     assert not app.exception
     assert "Chókwè" in app.title[0].value                      # abre directamente no local
     assert [button.label for button in app.button] == ["Descarregar clima do NASA POWER"]
@@ -62,7 +62,7 @@ def test_home_without_climate_offers_the_download(data_home):
 def test_home_with_climate_tells_the_whole_story(data_home, clim):
     from data.climate import save_climate
     save_climate(clim, -24.53, 33.00, demo=True)
-    app = run_page("app/Home.py")
+    app = run_page("app/O_que_plantar.py")
     assert not app.exception and len(app.button) == 0
     assert [header.value[:2] for header in app.header if header.value[0].isdigit()] == [
         "1.", "2.", "3."]
@@ -82,8 +82,33 @@ def test_home_with_climate_tells_the_whole_story(data_home, clim):
 
 def test_about_page(data_home, clim):
     from data.climate import save_climate
-    app = run_page("app/pages/1_Sobre_os_dados.py")
+    app = run_page("app/pages/1_Posso_confiar.py")
     assert not app.exception
     save_climate(clim, -24.53, 33.00, demo=True)
-    app = run_page("app/pages/1_Sobre_os_dados.py")
+    app = run_page("app/pages/1_Posso_confiar.py")
     assert not app.exception and len(app.dataframe) >= 2
+
+
+def test_home_shows_map_layers_when_the_grid_exists(data_home, clim):
+    import numpy as np
+    import pandas as pd
+
+    from data import grid
+    from data.climate import save_climate
+    save_climate(clim, -24.53, 33.00, demo=True)
+    cells = [(lat, lon) for lat, lon in grid.grid_cells(step=4)]
+    seasons = pd.DataFrame([
+        {"lat": lat, "lon": lon, "season": year, "rain_mm": 600.0 + 10 * (year - 1990) - 8 * lat,
+         "tmean_c": 25.0} for lat, lon in cells for year in range(1990, 2000)])
+    now = pd.DataFrame([
+        {"lat": lat, "lon": lon, "season": 2026, "months": "Outubro", "rain_mm": 30.0,
+         "rain_normal_mm": 40.0, "gwet": 0.3, "gwet_normal": 0.35, "gwet_latest": np.nan
+         if lon > 40 else 0.3, "last_date": "2026-11-10"} for lat, lon in cells])
+    grid.save_grid(seasons, now)
+    app = run_page("app/O_que_plantar.py")
+    assert not app.exception
+    layer = next(radio for radio in app.radio if radio.label == "O que o mapa mostra")
+    assert layer.options[-2].startswith("Agora: chuva de Outubro de 2026")
+    for option in ("ano", "agora", "solo"):
+        layer.set_value(option).run()
+        assert not app.exception

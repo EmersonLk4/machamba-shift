@@ -124,3 +124,41 @@ def crop_risk(crop_stats: dict, names: dict[str, str]) -> go.Figure:
         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
     )
     return figure
+
+
+def crop_range(crop_stats: dict, names: dict[str, str], threshold: float = 80) -> go.Figure:
+    """Leque de resultados de cada cultura: de uma campanha má a uma boa, com a normal ao meio."""
+    order = sorted(crop_stats, key=lambda key: crop_stats[key]["wrsi_median"])
+    labels = [names[key] for key in order]
+    low = [crop_stats[key]["wrsi_p10"] for key in order]
+    mid = [crop_stats[key]["wrsi_median"] for key in order]
+    high = [crop_stats[key]["wrsi_p90"] for key in order]
+    figure = go.Figure()
+    for label, a, b in zip(labels, low, high, strict=True):
+        figure.add_scatter(x=[a, b], y=[label, label], mode="lines", showlegend=False,
+                           line={"color": MUTED, "width": 6}, hoverinfo="skip")
+    figure.add_scatter(x=low, y=labels, mode="markers", name="Campanha má (1 em cada 10)",
+                       marker={"color": "#d03b3b", "size": 12,
+                               "line": {"color": "white", "width": 2}},
+                       hovertemplate="%{y} · campanha má: a chuva cobriu %{x:.0f}%<extra></extra>")
+    figure.add_scatter(x=mid, y=labels, mode="markers", name="Campanha normal",
+                       marker={"color": "#1a1a19", "size": 13, "symbol": "diamond",
+                               "line": {"color": "white", "width": 2}},
+                       hovertemplate="%{y} · campanha normal: a chuva cobriu %{x:.0f}%"
+                                     "<extra></extra>")
+    figure.add_scatter(x=high, y=labels, mode="markers", name="Campanha boa (1 em cada 10)",
+                       marker={"color": "#2a78d6", "size": 12,
+                               "line": {"color": "white", "width": 2}},
+                       hovertemplate="%{y} · campanha boa: a chuva cobriu %{x:.0f}%<extra></extra>")
+    figure.add_vline(x=threshold, line={"color": MUTED, "width": 1, "dash": "dot"},
+                     annotation_text="água suficiente", annotation_position="top",
+                     annotation_font={"size": 12, "color": MUTED})
+    figure.update_layout(
+        height=70 + 34 * len(order), margin={"l": 10, "r": 10, "t": 40, "b": 10},
+        legend={"orientation": "h", "y": 1.0, "yanchor": "bottom", "x": 0, "title": None},
+        xaxis={"range": [0, 102], "title": "Água de que a cultura precisa coberta pela chuva (%)",
+               "gridcolor": "rgba(137,135,129,0.25)", "zeroline": False},
+        yaxis={"title": None, "showgrid": False},
+        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+    )
+    return figure

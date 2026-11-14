@@ -10,13 +10,88 @@ clima diário de um ponto no NASA POWER, simula o balanço hídrico de cada cult
 campanha real, avalia todas as rotações de três campanhas e recomenda uma, com a explicação.
 Falta o polimento da interface, a validação e o pitch (ver `docs/ROADMAP.md`).
 
+## Tecnologias a instalar
+
+| O quê | Versão | Para quê |
+| --- | --- | --- |
+| Python (64 bits) | 3.11, 3.12 ou 3.13 | Linguagem única do projecto |
+| Git | Qualquer versão recente | Controlo de versões e deploy |
+| Editor (VS Code com a extensão Python) | — | Opcional, recomendado |
+
+As bibliotecas instalam-se com `pip` a partir de `requirements.txt`:
+
+| Biblioteca | Para quê |
+| --- | --- |
+| `streamlit`, `streamlit-folium`, `folium` | Interface e mapa clicável |
+| `plotly` | Gráficos interactivos |
+| `pandas`, `numpy` | Séries temporais e cálculo do motor |
+| `pyarrow` | Cache em Parquet |
+| `requests`, `requests-cache` | Pedidos às APIs com cache em disco |
+| `pyyaml` | Leitura de `params/*.yaml` |
+| `pytest`, `ruff` (só desenvolvimento) | Testes e verificação de estilo |
+
+Não é preciso instalar Node.js, Docker, PostgreSQL nem GDAL.
+
+Contas úteis: GitHub (repositório e deploy), Streamlit Community Cloud (deploy gratuito) e,
+só se forem usados SMAP ou IMERG, Earthdata Login.
+
+## Instalação
+
+Windows (PowerShell), na raiz do repositório:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+.\.venv\Scripts\Activate.ps1
+```
+
+Linux ou macOS:
+
+```bash
+bash scripts/setup.sh
+source .venv/bin/activate
+```
+
+Os scripts criam o ambiente virtual, instalam as dependências e correm os testes.
+
+## Verificar que está tudo a funcionar
+
+```bash
+pytest                              # 111 testes, sem rede
+python scripts/check_apis.py        # testa POWER, SoilGrids, TESViS e Open-Meteo
+python scripts/build_demo.py --compare   # descarrega o clima dos locais de demonstração
+python scripts/build_grid.py        # descarrega a grelha regional do mapa (demora)
+python scripts/run_engine.py        # corre o motor nos locais de demonstração, em texto
+streamlit run app/O_que_plantar.py           # abre a aplicação em http://localhost:8501
+```
+
+`run_engine.py` imprime, por local e cenário, o WRSI de cada cultura, as quatro estratégias
+com os seus indicadores, a explicação e as cinco melhores rotações. É a forma mais rápida
+de rever a plausibilidade do motor.
+
+`build_demo.py` guarda o clima de Chókwè, Gurué e Sussundenga em `data/demo/climate/`
+(versionado, para a demonstração correr sem Internet) e imprime um resumo por local:
+campanhas completas, chuva mediana, campanhas mais secas e, com `--compare`, a diferença
+para o Open-Meteo. Para qualquer outro ponto, o botão "Descarregar clima" da aplicação faz
+o mesmo e guarda em `data/cache/`.
+
+## Primeiro commit
+
+O repositório já está inicializado (`git init`, ramo `main`), sem commits.
+
+```bash
+git add .
+git commit -m "Fase 1: estrutura do projecto"
+git remote add origin https://github.com/<utilizador>/machamba-shift.git
+git push -u origin main
+```
+
 ## Estrutura
 
 ```text
 machamba-shift/
 ├── app/                  Interface Streamlit
-│   ├── Home.py           Página única: a chuva do local, o risco de cada cultura, o plano
-│   ├── pages/            Sobre os dados (fontes, limites, qualidade)
+│   ├── O_que_plantar.py  Página principal: mapa, chuva do local, risco das culturas, plano
+│   ├── pages/            Posso confiar (fontes, limites, qualidade)
 │   └── components/       Gráficos e etiquetas de origem dos dados
 ├── data/                 Único pacote que faz pedidos de rede
 │   ├── clients/          power.py, soilgrids.py, tesvis.py, openmeteo.py, http.py
@@ -25,6 +100,7 @@ machamba-shift/
 │   ├── scenarios.py      Histórico, seco, favorável, seco paramétrico, quente, ano real
 │   ├── validate.py       Dados ausentes e relatório de qualidade
 │   ├── soil.py           Solo com plano B (ficheiro de demo ou solo por defeito)
+│   ├── grid.py           Grelha regional para o mapa (condições reais por célula)
 │   ├── cache/            Cache local, ignorada pelo git
 │   └── demo/             Dados dos locais de demonstração, versionados
 ├── engine/               Motor de decisão: funções puras
@@ -118,6 +194,11 @@ Diferenças em relação ao plano inicial, decididas com os dados reais:
 A ferramenta caracteriza a zona, não o talhão: o clima vem de uma célula de cerca de 50 km.
 Os resultados são estimativas comparativas entre rotações. Não são previsões de produção
 nem substituem a análise de solo.
+
+## Documentos do projecto
+
+- Plano técnico e estratégico: https://claude.ai/artifact/FTrTAtuGBzpYv5qGyBBt1q
+- Quadro do plano de 48 horas: https://claude.ai/artifact/X8ccZz5AUQFwUphopCn9h9
 
 ## Licença
 

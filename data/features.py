@@ -155,3 +155,24 @@ def site_summary(table: pd.DataFrame) -> dict[str, float]:
         "season_length_median_days": float(done["season_length_days"].median()),
         "dry_seasons": int((done["tercile"] == "seco").sum()),
     }
+
+
+# --- Tendência ----------------------------------------------------------------------
+
+def trend(values: pd.Series) -> dict[str, float | bool]:
+    """Tendência de uma série anual: declive de Sen e teste de Mann-Kendall.
+
+    Devolve slope (unidades por ano), z e significant (|z| > 1,96, ou seja, 5%).
+    O teste não assume distribuição normal e resiste a anos extremos; não corrige empates.
+    """
+    data = values.dropna().to_numpy(dtype="float64")
+    n = len(data)
+    if n < 8:
+        return {"slope": 0.0, "z": 0.0, "significant": False, "n": n}
+    i, j = np.triu_indices(n, k=1)
+    diffs = data[j] - data[i]
+    s = float(np.sign(diffs).sum())
+    variance = n * (n - 1) * (2 * n + 5) / 18
+    z = 0.0 if s == 0 else (s - np.sign(s)) / np.sqrt(variance)
+    slope = float(np.median(diffs / (j - i)))
+    return {"slope": slope, "z": float(z), "significant": bool(abs(z) > 1.96), "n": n}

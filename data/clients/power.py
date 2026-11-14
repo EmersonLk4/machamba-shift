@@ -89,3 +89,55 @@ def fetch_years(lat: float, lon: float, start_year: int, end_year: int,
         frames.append(parse_daily(payload))
     frame = pd.concat(frames).sort_index()
     return frame[~frame.index.duplicated(keep="first")]
+
+
+# --- Série mensal (usada para a grelha do mapa: respostas pequenas e rápidas) ---------
+
+MONTHLY_URL = "https://power.larc.nasa.gov/api/temporal/monthly/point"
+MONTHLY_PARAMETERS = ("PRECTOTCORR", "T2M", "GWETROOT")
+
+
+def fetch_monthly(lat: float, lon: float, start_year: int, end_year: int,
+                  use_cache: bool = True, timeout: float = 60, retries: int = 2) -> dict:
+    """Pede as médias mensais de start_year a end_year e devolve o JSON tal como chega."""
+    params = {
+        "parameters": ",".join(MONTHLY_PARAMETERS),
+        "community": "AG",
+        "longitude": f"{lon:.4f}",
+        "latitude": f"{lat:.4f}",
+        "start": str(start_year),
+        "end": str(end_year),
+        "format": "JSON",
+    }
+    return get_json(MONTHLY_URL, params=params, use_cache=use_cache, timeout=timeout,
+                    retries=retries)
+
+
+def parse_monthly(payload: dict) -> pd.DataFrame:
+    """Uma linha por mês: year, month, p_mm (total do mês), tmean_c, gwetroot.
+
+    As chaves são AAAAMM; o "mês 13" é a média anual e é ignorado. A chuva mensal do
+    POWER vem em mm/dia: multiplica-se pelos dias reais de cada mês (Fevereiro tem 29
+    nos anos bissextos). Se a resposta disser que a unidade já é mm, não se multiplica.
+    """
+    import calendar
+
+    parameters = payload["properties"]["parameter"]
+    fill = float(payload.get("header", {}).get("fill_value", FILL_VALUE))
+    units = str(payload.get("parameters", {}).get("PRECTOTCORR", {}).get("units", "mm/day"))
+    per_day = "day" in units.lower()
+    rows = []
+    for key in sorted(parameters["PRECTOTCORR"]):
+        year, month = int(key[:4]), int(key[4:6])
+        if not 1 <= month <= 12:
+            continue
+        values = {name: parameters[name].get(key, fill) for name in MONTHLY_PARAMETERS}
+        values = {name: np.nan if value == fill else float(value)
+                  for name, value in values.items()}
+        days = calendar.monthrange(year, month)[1]
+        rows.append({
+            "year": year, "month": month,
+            "p_mm": values["PRECTOTCORR"] * (days if per_day else 1),
+            "tmean_c": values["T2M"], "gwetroot": values["GWETROOT"],
+        })
+    return pd.DataFrame(rows)

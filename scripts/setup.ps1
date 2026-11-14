@@ -11,4 +11,4 @@ python -m venv .venv
 Write-Host ""
 Write-Host "Ambiente pronto. Para activar:  .\.venv\Scripts\Activate.ps1"
 Write-Host "Testar as APIs:                 python scripts\check_apis.py"
-Write-Host "Abrir a aplicacao:              streamlit run app\Home.py"
+Write-Host "Abrir a aplicacao:              streamlit run app\O_que_plantar.py"

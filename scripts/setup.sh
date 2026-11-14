@@ -11,4 +11,4 @@ python3 -m venv .venv
 echo
 echo "Ambiente pronto. Para activar:  source .venv/bin/activate"
 echo "Testar as APIs:                 python scripts/check_apis.py"
-echo "Abrir a aplicação:              streamlit run app/Home.py"
+echo "Abrir a aplicação:              streamlit run app/O_que_plantar.py"

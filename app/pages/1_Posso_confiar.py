@@ -17,8 +17,9 @@ from data.features import season_table  # noqa: E402
 from data.validate import quality_report  # noqa: E402
 from engine.params import load_crops, load_rules, load_sites  # noqa: E402
 
-st.set_page_config(page_title="Sobre os dados · Machamba Shift", page_icon="🌱", layout="wide")
-st.title("Sobre os dados")
+st.set_page_config(page_title="Posso confiar? · Machamba Shift", page_icon="🌱", layout="wide")
+st.title("Posso confiar nestes números?")
+st.caption("De onde vem cada dado, o que foi testado e o que a ferramenta não sabe.")
 
 st.header("De onde vem cada número")
 st.dataframe(pd.DataFrame([
@@ -73,9 +74,34 @@ else:
     st.info("Sem clima guardado. Correr python scripts/build_demo.py.")
 
 with st.expander("Parâmetros das culturas"):
+    st.caption("Passe o rato sobre o nome de cada coluna para ver o que significa.")
     st.dataframe(pd.DataFrame([
-        {"Cultura": crop.name_pt, "Família": crop.family, "Ciclo (dias)": crop.cycle_days,
-         "Kc inicial": crop.kc_ini, "Kc médio": crop.kc_mid, "Kc final": crop.kc_end,
-         "Ky": crop.ky, "Ky é": "hipótese" if crop.ky_status == "hipotese"
-         else "tabelado, a confirmar", "% N do ar": crop.ndfa}
-        for crop in load_crops().values()]), hide_index=True, width="stretch")
+        {"Cultura": crop.name_pt, "Família": crop.family, "Ciclo": crop.cycle_days,
+         "Sede no início": crop.kc_ini, "Sede no pico": crop.kc_mid, "Sede no fim": crop.kc_end,
+         "Sensibilidade à seca": crop.ky,
+         "Origem da sensibilidade": "hipótese" if crop.ky_status == "hipotese"
+         else "tabelado, a confirmar", "Azoto do ar": crop.ndfa}
+        for crop in load_crops().values()]), hide_index=True, width="stretch", column_config={
+            "Família": st.column_config.TextColumn(help=(
+                "Família botânica. Culturas da mesma família partilham pragas e doenças, por "
+                "isso o plano evita pô-las em anos seguidos.")),
+            "Ciclo": st.column_config.NumberColumn(format="%d dias", help=(
+                "Dias da sementeira à colheita (FAO-56, Tabela 11). Varia com a variedade.")),
+            "Sede no início": st.column_config.NumberColumn(format="%.2f", help=(
+                "Coeficiente de cultura Kc inicial: água pedida logo após a sementeira, face a "
+                "um relvado de referência. 0,30 = 30% da referência.")),
+            "Sede no pico": st.column_config.NumberColumn(format="%.2f", help=(
+                "Kc médio: água pedida em plena floração, face à referência. 1,20 = pede 20% "
+                "mais do que a referência. É a fase em que a falta de água mais custa.")),
+            "Sede no fim": st.column_config.NumberColumn(format="%.2f", help=(
+                "Kc final: água pedida na maturação, quando a planta seca.")),
+            "Sensibilidade à seca": st.column_config.NumberColumn(format="%.2f", help=(
+                "Factor Ky: por cada 1% de água em falta, quanto se perde de colheita. "
+                "1,25 = perde 1,25%. Acima de 1 a cultura é sensível; abaixo, resistente.")),
+            "Origem da sensibilidade": st.column_config.TextColumn(help=(
+                "Tabelado: valor do FAO-56, ainda por conferir na tabela. Hipótese: a cultura "
+                "não tem valor publicado e assumiu-se 1,0.")),
+            "Azoto do ar": st.column_config.NumberColumn(format="%d%%", help=(
+                "Só leguminosas: percentagem do azoto da planta que vem do ar e não do solo "
+                "(Peoples et al. 2021).")),
+        })
