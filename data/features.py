@@ -176,3 +176,50 @@ def trend(values: pd.Series) -> dict[str, float | bool]:
     z = 0.0 if s == 0 else (s - np.sign(s)) / np.sqrt(variance)
     slope = float(np.median(diffs / (j - i)))
     return {"slope": slope, "z": float(z), "significant": bool(abs(z) > 1.96), "n": n}
+
+
+MONTHS_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+
+
+def monthly_table(clim: pd.DataFrame, min_days: int = 25) -> pd.DataFrame:
+    """Uma linha por mês de calendário com dados suficientes (pelo menos min_days dias).
+
+    Colunas: year, month, rain_mm (total), tmin_c, tmean_c, tmax_c (médias), e, quando o
+    clima as traz, rh_pct, wind_kmh e soil_pct. Meses incompletos ficam de fora, para um
+    total de chuva nunca ser comparado com um mês a que faltam dias.
+    """
+    valid = clim.dropna(subset=["p_mm", "tmax_c", "tmin_c"])
+    groups = valid.groupby([valid.index.year, valid.index.month])
+    table = groups.agg(days=("p_mm", "size"), rain_mm=("p_mm", "sum"),
+                       tmin_c=("tmin_c", "mean"), tmax_c=("tmax_c", "mean"))
+    table["tmean_c"] = ((valid["tmax_c"] + valid["tmin_c"]) / 2).groupby(
+        [valid.index.year, valid.index.month]).mean()
+    extras = {"rh_pct": ("rh_pct", 1.0), "wind_kmh": ("wind_ms", 3.6),
+              "soil_pct": ("gwetroot", 100.0)}
+    for name, (column, factor) in extras.items():
+        table[name] = groups[column].mean() * factor if column in valid else np.nan
+    table.index.names = ["year", "month"]
+    return table[table["days"] >= min_days].drop(columns="days").reset_index()
+
+
+def monthly_view(months: pd.DataFrame, year: int | None = None) -> pd.DataFrame:
+    """Os 12 meses de um ano, ou a média de todos os anos se year for None.
+
+    Junta a cada mês a média de todos os anos (rain_normal_mm, tmean_normal_c), o número de
+    anos e os anos em que esse mês foi mais chuvoso e mais seco.
+    """
+    by_month = months.groupby("month")
+    normal = by_month.agg(rain_normal_mm=("rain_mm", "mean"), tmean_normal_c=("tmean_c", "mean"),
+                          years=("year", "size"))
+    wettest = months.loc[by_month["rain_mm"].idxmax()].set_index("month")
+    driest = months.loc[by_month["rain_mm"].idxmin()].set_index("month")
+    normal["wet_year"], normal["wet_mm"] = wettest["year"], wettest["rain_mm"]
+    normal["dry_year"], normal["dry_mm"] = driest["year"], driest["rain_mm"]
+    columns = ["rain_mm", "tmin_c", "tmean_c", "tmax_c", "rh_pct", "wind_kmh", "soil_pct"]
+    if year is None:
+        values = by_month[columns].mean()
+    else:
+        values = months[months["year"] == year].set_index("month")[columns]
+    view = values.join(normal, how="inner").reset_index()
+    view["label"] = [MONTHS_PT[month - 1] for month in view["month"]]
+    return view

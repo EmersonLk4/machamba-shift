@@ -63,21 +63,47 @@ def test_home_with_climate_tells_the_whole_story(data_home, clim):
     from data.climate import save_climate
     save_climate(clim, -24.53, 33.00, demo=True)
     app = run_page("app/O_que_plantar.py")
-    assert not app.exception and len(app.button) == 0
-    assert [header.value[:2] for header in app.header if header.value[0].isdigit()] == [
-        "1.", "2.", "3."]
+    assert not app.exception
+    assert not any("Descarregar clima" in button.label for button in app.button)
+    headers = [header.value for header in app.header]
+    assert [value for value in headers if value not in ("Local", "O agricultor")] == [
+        "Mapa e tempo", "Solo, ar e vento", "Histórico NASA", "Culturas",
+        "Plano para três campanhas", "Perguntas", "Relatório"]
     labels = [metric.label for metric in app.metric]
-    assert labels[:3] == ["Chuva de uma campanha normal", "Chuva numa campanha má",
-                          "Chuva numa campanha boa"]
+    assert labels[:3] == ["Campanha normal", "Campanha má", "Campanha boa"]
     assert "Campanhas com água suficiente" in labels
     assert all(metric.help for metric in app.metric)            # cada métrica explica-se
     assert any(text.value.startswith("- Em troca:") for text in app.markdown)
     assert not any("Qualidade" in expander.label for expander in app.expander)
     plan = app.subheader[0].value
     assert any(name in plan for name in ("Milho", "Mapira", "Mexoeira"))   # um cereal
-    scenario = next(box for box in app.selectbox if box.label == "Ver o que teria acontecido")
+    scenario = next(box for box in app.selectbox if box.label == "Campanhas a considerar")
     scenario.select("quente").run()
     assert not app.exception
+    next(button for button in app.button if button.label.startswith("Secos")).click().run()
+    assert not app.exception and app.session_state["months"] == [4, 5, 6, 7, 8, 9]
+    question = next(box for box in app.selectbox if box.label == "Escolha uma pergunta")
+    for option in ("seguro", "quando", "seco", "previsao"):
+        question.select(option).run()
+        assert not app.exception and len(app.info) >= 1
+
+
+def test_home_shows_recent_conditions_and_report(data_home, clim):
+    from app.components.report import build_report
+    from data.climate import _recent_path, recent_summary, save_climate
+    from data.paths import demo_dir
+    save_climate(clim, -24.53, 33.00, demo=True)
+    recent = clim.tail(45).copy()
+    recent["gwettop"] = 0.2
+    path = _recent_path(demo_dir(), -24.53, 33.00)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    recent.to_parquet(path)
+    now = recent_summary(recent)
+    assert now["rain_30d_mm"] >= now["rain_7d_mm"] >= 0 and now["soil_top"] == 0.2
+    app = run_page("app/O_que_plantar.py")
+    assert not app.exception
+    assert "Solo, raízes" in [metric.label for metric in app.metric]
+    assert build_report  # o relatório é construído dentro da página sem erro
 
 
 def test_about_page(data_home, clim):
@@ -107,8 +133,9 @@ def test_home_shows_map_layers_when_the_grid_exists(data_home, clim):
     grid.save_grid(seasons, now)
     app = run_page("app/O_que_plantar.py")
     assert not app.exception
-    layer = next(radio for radio in app.radio if radio.label == "O que o mapa mostra")
-    assert layer.options[-2].startswith("Agora: chuva de Outubro de 2026")
-    for option in ("ano", "agora", "solo"):
+    layer = next(radio for radio in app.radio if radio.label == "Vista")
+    assert layer.options[0] == "Aqui (satélite)"
+    assert layer.options[-2] == "Região: Outubro de 2026"
+    for option in ("normal", "ano", "agora", "solo"):
         layer.set_value(option).run()
         assert not app.exception

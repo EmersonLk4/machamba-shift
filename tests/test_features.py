@@ -110,3 +110,32 @@ def test_site_summary_uses_only_complete_seasons(clim, rules):
     assert (summary["first_season"], summary["last_season"]) == (1990, 2001)
     assert summary["rain_p10_mm"] < summary["rain_median_mm"] < summary["rain_p90_mm"]
     assert summary["dry_seasons"] == 4
+
+
+def test_monthly_table_and_view(clim):
+    from data.features import monthly_table, monthly_view
+    months = monthly_table(clim)
+    assert len(months) == 13 * 12 and (months["rain_mm"] >= 0).all()
+    short = monthly_table(clim.iloc[:-20])                 # Dezembro de 2002 fica incompleto
+    assert len(short) == len(months) - 1
+    year = monthly_view(months, 2001)
+    assert list(year["label"])[:2] == ["Jan", "Fev"] and len(year) == 12
+    assert (year["tmin_c"] < year["tmean_c"]).all() and (year["tmean_c"] < year["tmax_c"]).all()
+    every = monthly_view(months)
+    assert (every["rain_mm"] - every["rain_normal_mm"]).abs().max() < 1e-9
+    assert (every["dry_mm"] <= every["rain_mm"]).all()
+    assert (every["rain_mm"] <= every["wet_mm"]).all()
+
+
+def test_hover_charts_carry_panel_text(clim, rules):
+    from app.components.charts import monthly_rain, monthly_temperature, rain_by_season
+    from app.components.hover import hover_html
+    from data.features import monthly_table, monthly_view, season_table
+    view = monthly_view(monthly_table(clim), 2001)
+    for figure in (monthly_rain(view, "2001", True), monthly_temperature(view, "2001"),
+                   rain_by_season(season_table(clim, rules))):
+        panels = [point for trace in figure.data if trace.customdata is not None
+                  for point in trace.customdata]
+        assert panels and all(len(point) == 3 and all(point) for point in panels)
+        html = hover_html(figure)
+        assert "plotly_hover" in html and 'id="panel"' in html

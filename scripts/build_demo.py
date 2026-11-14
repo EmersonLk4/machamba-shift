@@ -18,7 +18,14 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from data.clients import openmeteo  # noqa: E402
-from data.climate import START_YEAR, build_climate, default_end_year, save_climate  # noqa: E402
+from data.climate import (  # noqa: E402
+    START_YEAR,
+    build_climate,
+    default_end_year,
+    get_recent,
+    recent_summary,
+    save_climate,
+)  # noqa: E402
 from data.features import add_et0, add_season, season_table, site_summary  # noqa: E402
 from data.validate import fill_gaps, quality_report  # noqa: E402
 from engine.params import load_rules, load_sites  # noqa: E402
@@ -64,6 +71,14 @@ def main(argv: list[str]) -> int:
             print(f"  FALHOU: {error}")
             continue
         path = save_climate(clim, site.lat, site.lon, demo=True)
+        recent = get_recent(site.lat, site.lon, demo=True)
+        now = recent_summary(recent) if recent is not None else None
+        if now:
+            print(f"  Condições recentes até {now['last_date']}: chuva 30 d "
+                  f"{now['rain_30d_mm']:.0f} mm, Tmax {now['tmax_c']:.1f} °C, "
+                  f"solo {now['soil_root']}, vento {now['wind_kmh']}")
+        else:
+            print("  Condições recentes: o POWER não respondeu (a página mostra um aviso)")
         table = season_table(clim, rules)
         summary = site_summary(table)
         report = quality_report(clim)

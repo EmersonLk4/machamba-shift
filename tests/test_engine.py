@@ -403,3 +403,24 @@ def test_explain_when_nothing_beats_the_monoculture():
     lines = explain(make("recomendada", {}), mono, weights)
     assert "nenhuma rotação viável supera" in lines[0]
     assert lines[-1].startswith("Em troca: nenhum dos objectivos avaliados piora")
+
+
+def test_sowing_window_and_report(clim, rules):
+    from app.components.report import build_report
+    from data.features import season_table, site_summary
+    from data.soil import default_soil
+    from engine.params import load_crops, load_engine_defaults, load_sites
+    from engine.rotation import recommend
+    from engine.water_balance import SOWING_DATES, sowing_window
+    crops, site = load_crops(), load_sites()["chokwe"]
+    soil = default_soil(site.lat, site.lon)
+    window = sowing_window(clim, crops["milho"], soil, site, rules, load_engine_defaults())
+    assert len(window) == len(SOWING_DATES) and "15/11" in window
+    assert all(0 <= item["p_failure"] <= item["p_stress"] <= 1 for item in window.values())
+    weights = rules["weights"]["equilibrado"]
+    result = recommend(site, clim, soil, list(crops), weights, rules, catalogue=crops)
+    names = {key: crop.name_pt for key, crop in crops.items()}
+    html = build_report(site.name, site.lat, site.lon, site_summary(season_table(clim, rules)),
+                        result, names, None, window, "milho", "SINTÉTICO")
+    assert html.startswith("<!doctype html>") and "Plano recomendado" in html
+    assert "15/11" in html and "Condições recentes" not in html

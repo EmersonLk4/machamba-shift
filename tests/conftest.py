@@ -57,3 +57,9 @@ def data_home(tmp_path, monkeypatch):
     """Aponta data/demo e data/cache para uma pasta temporária."""
     monkeypatch.setenv("MACHAMBA_DATA_DIR", str(tmp_path))
     return tmp_path
+
+
+@pytest.fixture(autouse=True)
+def no_network(monkeypatch):
+    """Nenhum teste faz pedidos de rede."""
+    monkeypatch.setenv("MACHAMBA_OFFLINE", "1")

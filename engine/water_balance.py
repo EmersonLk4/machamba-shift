@@ -160,3 +160,24 @@ def summarize(stats: pd.DataFrame, rules: dict) -> dict[str, float]:
         "etc_median_mm": float(stats["etc_mm"].median()),
         "rain_median_mm": float(stats["rain_mm"].median()),
     }
+
+
+SOWING_DATES = ((10, 15), (11, 1), (11, 15), (12, 1), (12, 15), (1, 1), (1, 15))
+
+
+def sowing_window(clim: pd.DataFrame, crop: Crop, soil: SoilProfile, site: Site, rules: dict,
+                  defaults: dict, dates=SOWING_DATES) -> dict[str, dict[str, float]]:
+    """Resumo do balanço hídrico da cultura para várias datas de sementeira.
+
+    Responde a "quando semear": para cada data, em quantas campanhas reais a cultura teria
+    tido água suficiente. Devolve {"15/11": resumo, ...} pela ordem das datas.
+    """
+    from dataclasses import replace
+
+    out = {}
+    for month, day in dates:
+        shifted = replace(site, sow_month=month, sow_day=day)
+        stats = season_stats(clim, crop, soil, shifted, rules, defaults)
+        if not stats.empty:
+            out[f"{day:02d}/{month:02d}"] = summarize(stats, rules)
+    return out

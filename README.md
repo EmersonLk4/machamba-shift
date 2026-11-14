@@ -5,10 +5,10 @@ para um ponto no mapa, com dados de observação da Terra da NASA.
 
 NASA Space Apps Challenge 2026 · desafio *Field Shift: Adapting Farms with NASA Data* · equipa Data Architects.
 
-**Estado:** Fases 1 (ambiente), 2 (dados) e 3 (motor) concluídas. A aplicação descarrega o
-clima diário de um ponto no NASA POWER, simula o balanço hídrico de cada cultura em cada
-campanha real, avalia todas as rotações de três campanhas e recomenda uma, com a explicação.
-Falta o polimento da interface, a validação e o pitch (ver `docs/ROADMAP.md`).
+**Estado:** dados, motor e interface concluídos. A página única (`streamlit run
+app/O_que_plantar.py`) tem mapa de satélite com as condições recentes do NASA POWER, histórico,
+risco por cultura, datas de sementeira, plano de três campanhas, perguntas e relatório para
+descarregar. Falta: publicação, documentação em inglês e diapositivos.
 
 ## Tecnologias a instalar
 
