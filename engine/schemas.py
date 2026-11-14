@@ -132,7 +132,7 @@ class StrategyResult:
     label: str                              # um de STRATEGY_LABELS
     sequence: list[str]                     # três crop_id
     score: float
-    indicators: dict[str, float]            # chaves = INDICATORS, valores em [0, 1]
+    indicators: dict[str, float | None]     # chaves = INDICATORS; [0, 1] ou None se não avaliado
     raw: dict[str, object] = field(default_factory=dict)
     contributions_vs_baseline: dict[str, float] = field(default_factory=dict)
     flags: list[str] = field(default_factory=list)
@@ -144,11 +144,19 @@ class Recommendation:
 
     site: dict[str, object]
     scenario: str
-    weights: dict[str, float]
+    weights: dict[str, float]               # pesos efectivamente usados (somam 1)
     strategies: list[StrategyResult]
     explanation: list[str] = field(default_factory=list)
     assumptions: list[str] = field(default_factory=list)
     provenance: dict[str, str] = field(default_factory=dict)
+    flags: list[str] = field(default_factory=list)          # avisos sobre o que não foi avaliado
+    ranking: list[dict[str, object]] = field(default_factory=list)   # melhores candidatos
+    candidates: int = 0                                      # rotações viáveis avaliadas
+    crop_stats: dict[str, dict[str, float]] = field(default_factory=dict)
+    seasons: int = 0                                         # campanhas usadas no cenário
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
+
+    def strategy(self, label: str) -> StrategyResult | None:
+        return next((item for item in self.strategies if item.label == label), None)

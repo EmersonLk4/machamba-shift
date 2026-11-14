@@ -1,0 +1,31 @@
+# Valores usados pelo motor quando a célula correspondente de crops.csv está vazia.
+# São HIPÓTESES de trabalho. Um valor preenchido em crops.csv tem sempre prioridade.
+
+# Profundidade radicular máxima (m) e fracção de esgotamento p.
+# Pontos médios dos intervalos da Tabela 22 do FAO-56, transcritos de memória: confirmar.
+root_and_depletion:
+  milho:          {zr_m: 1.35, p: 0.55}
+  mapira:         {zr_m: 1.50, p: 0.55}
+  mexoeira:       {zr_m: 1.50, p: 0.55}
+  feijao_vulgar:  {zr_m: 0.75, p: 0.45}
+  feijao_nhemba:  {zr_m: 0.80, p: 0.45}
+  amendoim:       {zr_m: 0.75, p: 0.50}
+  soja:           {zr_m: 0.95, p: 0.50}
+  gergelim:       {zr_m: 1.25, p: 0.60}
+  batata_doce:    {zr_m: 1.25, p: 0.65}
+  fallback:       {zr_m: 1.00, p: 0.50}
+
+# Índice de azoto (sem unidades). Uma leguminosa soma a fracção do seu N que vem do ar
+# (ndfa / 100). Uma não leguminosa subtrai a exigência relativa do seu grupo.
+# As exigências por grupo são uma classificação qualitativa, não medições.
+n_demand_index:
+  cereal: 1.0
+  oleaginosa: 0.6
+  raiz: 0.6
+  leguminosa: 0.0
+
+# Resiliência = 1 - (stress_weight x P(WRSI < limiar de stress)
+#                    + failure_weight x P(WRSI < limiar de falha))
+resilience:
+  stress_weight: 0.5
+  failure_weight: 0.5

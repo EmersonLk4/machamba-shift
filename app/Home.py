@@ -176,7 +176,7 @@ with st.expander("Estado do projecto"):
     st.markdown(
         "- **Fase 1, ambiente:** concluída\n"
         "- **Fase 2, dados:** concluída (clima, ET0, campanhas, cenários, solo por defeito)\n"
-        "- **Fase 3, motor:** balanço hídrico, WRSI, rotações, score, explicações\n"
-        "- **Fase 4, interface:** recomendação, comparação de cenários, painel Porquê\n"
+        "- **Fase 3, motor:** concluída (balanço hídrico, WRSI, rotações, score, explicações)\n"
+        "- **Fase 4, interface:** página de recomendação a funcionar; falta o polimento\n"
         "- **Fase 5, validação e pitch**"
     )

@@ -67,3 +67,9 @@ def load_sites(path: Path | None = None) -> dict[str, Site]:
 def load_economics(path: Path | None = None) -> pd.DataFrame:
     """Lê economics.csv. As colunas numéricas ficam NaN enquanto não forem preenchidas."""
     return pd.read_csv(path or PARAMS_DIR / "economics.csv").set_index("crop_id")
+
+
+def load_engine_defaults(path: Path | None = None) -> dict:
+    """Lê engine_defaults.yaml: valores usados quando crops.csv tem células vazias."""
+    with open(path or PARAMS_DIR / "engine_defaults.yaml", encoding="utf-8") as handle:
+        return yaml.safe_load(handle)

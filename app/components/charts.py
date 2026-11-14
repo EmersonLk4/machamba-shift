@@ -46,3 +46,41 @@ def rain_by_season(table: pd.DataFrame) -> go.Figure:
         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
     )
     return figure
+
+
+STRATEGY_STYLE = {
+    "monocultura": ("Monocultura", "#2a78d6"),
+    "convencional": ("Convencional", "#eb6834"),
+    "com_leguminosa": ("Com leguminosa", "#1baf7a"),
+    "recomendada": ("Recomendada", "#eda100"),
+}
+INDICATOR_NAMES = {
+    "agua": "Água", "solo": "Solo", "resiliencia": "Resiliência",
+    "rendimento": "Rendimento", "margem": "Margem", "diversidade": "Diversidade",
+}
+
+
+def indicators_by_strategy(strategies) -> go.Figure:
+    """Indicadores (0 a 1, mais é melhor) de cada estratégia, lado a lado."""
+    names = [key for key in INDICATOR_NAMES
+             if any(item.indicators.get(key) is not None for item in strategies)]
+    figure = go.Figure()
+    for item in strategies:
+        label, color = STRATEGY_STYLE[item.label]
+        figure.add_bar(
+            x=[INDICATOR_NAMES[key] for key in names],
+            y=[item.indicators[key] for key in names], name=label,
+            marker={"color": color, "cornerradius": 3, "line": {"width": 0}},
+            customdata=[" → ".join(item.raw["names"])] * len(names),
+            hovertemplate=label + " · %{x}: %{y:.2f}<br>%{customdata}<extra></extra>",
+        )
+    figure.update_layout(
+        barmode="group", bargap=0.3, bargroupgap=0.08, height=340,
+        margin={"l": 10, "r": 10, "t": 30, "b": 10},
+        legend={"orientation": "h", "y": 1.12, "x": 0, "title": None},
+        xaxis={"showgrid": False, "title": None},
+        yaxis={"title": "Indicador (0 a 1, mais é melhor)", "range": [0, 1.02],
+               "gridcolor": "rgba(137,135,129,0.25)", "zeroline": False},
+        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+    )
+    return figure

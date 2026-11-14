@@ -84,3 +84,16 @@ def test_scenarios_page(data_home, clim):
     assert app.metric[2].delta == "+2.0 °C"
     app.selectbox[0].select("ano").run()
     assert not app.exception and len(app.selectbox) == 2
+
+
+def test_recommendation_page(data_home, clim):
+    from data.climate import save_climate
+    app = run_page("app/pages/1_Recomendacao.py")
+    assert not app.exception and len(app.metric) == 0          # sem clima: só o aviso
+    save_climate(clim, -24.53, 33.00, demo=True)
+    app = run_page("app/pages/1_Recomendacao.py")
+    assert not app.exception
+    assert [metric.label for metric in app.metric] == [
+        "Score", "Água suficiente", "Água pedida", "Rendimento relativo"]
+    assert "Milho" in app.subheader[0].value                   # mantém a cultura actual
+    assert any(text.value.startswith("- Em troca:") for text in app.markdown)

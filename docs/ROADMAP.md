@@ -10,8 +10,8 @@ recomendada contra a monocultura, mudar de cenário e ler o porquê.
 | --- | --- | --- | --- |
 | 1. Ambiente (feita) | Repositório, dependências, parâmetros, contratos de dados | Esqueleto | `pytest` passa e a aplicação abre |
 | 2. Dados (feita) | Clima real do POWER, solo, ET0, corte por campanhas, cenários, cache | `data/climate.py`, `data/features.py`, `data/scenarios.py`, `data/validate.py`, `data/soil.py` | `python scripts/build_demo.py` guarda Chókwè e Gurué em `data/demo/` |
-| 3. Motor | Curva de Kc, balanço hídrico, WRSI, balanço de N, regras, enumeração, score, explicações | `engine/*.py` | `recommend()` devolve um `Recommendation` válido com dados reais |
-| 4. Interface | Ficha do local, recomendação, comparação de cenários, painel Porquê, etiquetas de origem | `app/` | O fluxo completo corre nos dois locais |
+| 3. Motor (feita) | Curva de Kc, balanço hídrico, WRSI, índice de azoto, regras, enumeração, score, explicações | `engine/*.py`, `scripts/run_engine.py` | `recommend()` devolve um `Recommendation` válido com dados reais |
+| 4. Interface (em curso) | Página de recomendação já funciona; falta comparar cenários lado a lado, risco "em X de cada 10" e polimento | `app/` | O fluxo completo corre nos dois locais |
 | 5. Validação e pitch | Testes de sanidade, comparação com Open-Meteo, README, vídeo, submissão | `analysis/`, `README.md` | Submissão feita com margem |
 
 ## O que fica de fora a solo

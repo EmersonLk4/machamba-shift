@@ -7,6 +7,7 @@ Todos os números agronómicos do projecto vivem nesta pasta. O código não tem
 | `crops.csv` | Uma linha por cultura: fases, Kc, Ky, limites térmicos e de pH, fixação de N |
 | `rules.yaml` | Limiares, constantes do motor, cenários e predefinições de pesos |
 | `sites.yaml` | Locais de demonstração e datas de sementeira |
+| `engine_defaults.yaml` | Valores usados quando `crops.csv` tem células vazias: raízes, fracção p, índice de azoto |
 | `soil_defaults.yaml` | Retenção de água por classe de textura (FAO-56, Tabela 19, a confirmar) |
 | `economics.csv` | Rendimento de referência, preço e custo por cultura |
 

@@ -33,8 +33,9 @@ def compare_with_openmeteo(site, clim, table, rules) -> None:
         return
     other = add_season(add_et0(fill_gaps(other), site.lat))
     other_table = season_table(other, rules)
-    both = table[table["complete"]].join(other_table[other_table["complete"]],
-                                         how="inner", rsuffix="_om")
+    both = table[table["complete"]].merge(
+        other_table[other_table["complete"]], left_index=True, right_index=True,
+        how="inner", suffixes=("", "_om"))
     if len(both) < 5:
         print("  Comparação indisponível: poucas campanhas em comum")
         return

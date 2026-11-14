@@ -5,9 +5,10 @@ para um ponto no mapa, com dados de observação da Terra da NASA.
 
 NASA Space Apps Challenge 2026 · desafio *Field Shift: Adapting Farms with NASA Data* · equipa Data Architects.
 
-**Estado:** Fases 1 (ambiente) e 2 (dados) concluídas. A aplicação descarrega o clima
-diário de um ponto no NASA POWER, calcula a ET0, divide a série em campanhas, classifica os
-anos secos e constrói os cenários. O motor de decisão está por implementar (ver `docs/ROADMAP.md`).
+**Estado:** Fases 1 (ambiente), 2 (dados) e 3 (motor) concluídas. A aplicação descarrega o
+clima diário de um ponto no NASA POWER, simula o balanço hídrico de cada cultura em cada
+campanha real, avalia todas as rotações de três campanhas e recomenda uma, com a explicação.
+Falta o polimento da interface, a validação e o pitch (ver `docs/ROADMAP.md`).
 
 ## Tecnologias a instalar
 
@@ -55,11 +56,16 @@ Os scripts criam o ambiente virtual, instalam as dependências e correm os teste
 ## Verificar que está tudo a funcionar
 
 ```bash
-pytest                              # 78 testes, sem rede
+pytest                              # 111 testes, sem rede
 python scripts/check_apis.py        # testa POWER, SoilGrids, TESViS e Open-Meteo
 python scripts/build_demo.py --compare   # descarrega o clima dos locais de demonstração
+python scripts/run_engine.py        # corre o motor nos locais de demonstração, em texto
 streamlit run app/Home.py           # abre a aplicação em http://localhost:8501
 ```
+
+`run_engine.py` imprime, por local e cenário, o WRSI de cada cultura, as quatro estratégias
+com os seus indicadores, a explicação e as cinco melhores rotações. É a forma mais rápida
+de rever a plausibilidade do motor.
 
 `build_demo.py` guarda o clima de Chókwè, Gurué e Sussundenga em `data/demo/climate/`
 (versionado, para a demonstração correr sem Internet) e imprime um resumo por local:
@@ -84,7 +90,7 @@ git push -u origin main
 machamba-shift/
 ├── app/                  Interface Streamlit
 │   ├── Home.py           Mapa, ficha de clima e de solo, catálogo de culturas
-│   ├── pages/            Cenários (clima por cenário) e Recomendação (Fase 4)
+│   ├── pages/            Recomendação (quatro estratégias e o porquê) e Cenários
 │   └── components/       Gráficos e etiquetas de origem dos dados
 ├── data/                 Único pacote que faz pedidos de rede
 │   ├── clients/          power.py, soilgrids.py, tesvis.py, openmeteo.py, http.py
@@ -98,11 +104,17 @@ machamba-shift/
 ├── engine/               Motor de decisão: funções puras
 │   ├── schemas.py        Contratos de dados
 │   ├── params.py         Leitura de params/
-│   └── water_balance.py, nitrogen.py, rules.py, rotation.py, scoring.py, explain.py (Fase 3)
-├── params/               crops.csv, rules.yaml, sites.yaml, soil_defaults.yaml, economics.csv
+│   ├── water_balance.py  Curva de Kc, balanço hídrico diário FAO-56, WRSI
+│   ├── nitrogen.py       Índice de azoto e efeito leguminosa -> cereal
+│   ├── rules.py          Filtros e penalizações agronómicas
+│   ├── scoring.py        Normalização, pesos e score
+│   ├── rotation.py       recommend(): enumeração e as quatro estratégias
+│   └── explain.py        Frases "porquê" e "em troca"
+├── params/               crops.csv, rules.yaml, sites.yaml, soil_defaults.yaml,
+│                         engine_defaults.yaml, economics.csv
 ├── fixtures/             Exemplos dos contratos; raw/ recebe respostas reais
 ├── analysis/             Validação e sensibilidade (Fase 5)
-├── scripts/              setup.ps1, setup.sh, check_apis.py, build_demo.py
+├── scripts/              setup.ps1, setup.sh, check_apis.py, build_demo.py, run_engine.py
 ├── tests/
 └── docs/ROADMAP.md       Fases e âmbito a solo
 ```
@@ -119,18 +131,43 @@ machamba-shift/
 - **Falhas:** temperaturas interpoladas até 5 dias; chuva em falta recebe a média desse dia
   do ano; cada dia alterado fica com `qc_flag = 1`.
 
+## Como o motor decide
+
+1. **Simulação.** Para cada cultura e cada campanha real corre um balanço hídrico diário do
+   solo (FAO-56). Daí saem o WRSI (percentagem das necessidades de água satisfeitas pela
+   chuva), a ETc e o rendimento relativo `1 - Ky x (1 - ETa/ETc)`.
+2. **Risco.** Uma campanha com WRSI abaixo de 80 conta como stress; abaixo de 50, como falha.
+3. **Rotações.** Todas as sequências de três campanhas que passam os filtros (sem repetir a
+   cultura em anos seguidos, preferências do agricultor, pH e temperatura quando há dados).
+4. **Indicadores, de 0 a 1.** Água (menos ETc é melhor), solo (índice de azoto), resiliência
+   (`1 - (P(stress) + P(falha)) / 2`), rendimento relativo, margem (só com preços) e diversidade
+   de famílias botânicas.
+5. **Score.** Soma ponderada pelas prioridades do agricultor, menos 0,05 por cada repetição de
+   família em anos seguidos. Os limites de normalização são calculados no cenário histórico e
+   congelados, para os cenários serem comparáveis.
+6. **Explicação.** As duas maiores contribuições para a vantagem sobre a monocultura dão as
+   frases "porquê"; a mais negativa dá a frase "em troca".
+
+Diferenças em relação ao plano inicial, decididas com os dados reais:
+
+- A época de crescimento não é filtro (em Chókwè tem 50 dias, menos do que qualquer ciclo).
+- O solo é avaliado por um índice de azoto sem unidades, não por um balanço em kg N/ha,
+  porque faltam rendimentos e teores de N para todas as culturas.
+- A resiliência conta o stress e a falha, em vez de um único limiar.
+
 ## O que já funciona e o que não foi testado
 
 | Parte | Estado |
 | --- | --- |
 | Parâmetros, contratos, etiquetas de origem | Implementado e testado |
-| Clientes POWER, TESViS e Open-Meteo | Responderam em `check_apis.py` (14 de Novembro de 2026) |
-| ET0, campanhas, terços, cenários, tratamento de falhas | Implementado e testado com clima sintético |
-| Descarga de 35 anos do POWER num só pedido | **Não testado com o servidor.** Se falhar, o código pede em blocos de 5 anos |
-| Ficha de clima e página de cenários | Testadas com clima sintético; falta ver com dados reais |
-| Solo | Solo franco por defeito (hipótese). SoilGrids suspenso; parser por confirmar |
-| Época de crescimento | Indicador por calibrar com dados reais antes de servir de filtro |
-| Motor e recomendação | Só assinaturas (`NotImplementedError`) |
+| Clima real de Chókwè, Gurué e Sussundenga (NASA POWER, 35 campanhas) | Descarregado a 14 de Novembro de 2026 |
+| ET0, campanhas, terços, cenários, tratamento de falhas | Implementado e testado |
+| Motor: balanço hídrico, regras, score, rotações, explicações | Implementado e testado com clima sintético; **falta rever os resultados com o clima real** |
+| Chuva do POWER contra o Open-Meteo | Chókwè: correlação 0,64, viés +32%. Gurué: correlação 0,07, pouco fiável |
+| Solo | Solo franco por defeito (hipótese). SoilGrids suspenso |
+| Profundidade radicular e fracção p | Hipóteses em `params/engine_defaults.yaml`, por confirmar na Tabela 22 do FAO-56 |
+| Adequação térmica e filtro de pH | Só actuam quando `crops.csv` tiver os limites ECOCROP |
+| Margem económica | Fora do score enquanto `economics.csv` estiver vazio |
 
 ## Fontes de dados
 
