@@ -44,7 +44,7 @@ if clim is None:
 NAMES = {key: crop.name_pt for key, crop in catalogue.items()}
 PRESETS = {"equilibrado": "Equilibrado", "seguranca_alimentar": "Segurança alimentar",
            "recuperar_solo": "Recuperar o solo", "rendimento": "Rendimento"}
-OBJECTIVES = {"agua": "Poupar água", "solo": "Cuidar do solo",
+OBJECTIVES = {"agua": "Água que a chuva cobre", "solo": "Cuidar do solo",
               "resiliencia": "Aguentar anos secos", "rendimento": "Rendimento",
               "margem": "Margem económica", "diversidade": "Diversidade"}
 SCENARIOS = {
@@ -62,7 +62,8 @@ with st.sidebar:
                            index=list(NAMES).index(base_site.current_crop))
     accepted = st.multiselect("Culturas que aceita plantar", list(NAMES), default=list(NAMES),
                               format_func=NAMES.get)
-    keep_current = st.checkbox(f"Manter {NAMES[current].lower()} pelo menos uma vez", value=True)
+    staple = st.checkbox("Pelo menos uma campanha de cereal", value=True)
+    keep_current = st.checkbox(f"Manter {NAMES[current].lower()} pelo menos uma vez", value=False)
     preset = st.selectbox("Prioridades", list(PRESETS), format_func=PRESETS.get)
     with st.expander("Ajustar prioridades"):
         sliders = {name: st.slider(OBJECTIVES[name], 0.0, 10.0,
@@ -86,7 +87,8 @@ site = replace(base_site, lat=lat, lon=lon, sow_month=int(sow_month), sow_day=in
                current_crop=current,
                name=base_site.name if is_demo_point else "Ponto escolhido no mapa")
 soil = get_soil(lat, lon, site_id=site_id if is_demo_point else None)
-constraints = Constraints(required={current} if keep_current and current in accepted else set())
+constraints = Constraints(required={current} if keep_current and current in accepted else set(),
+                          require_staple=staple)
 
 # --- Motor --------------------------------------------------------------------
 try:
@@ -115,9 +117,10 @@ cols[1].metric("Água suficiente", f"{100 * share_ok(best):.0f}% das campanhas",
                f"{100 * (share_ok(best) - share_ok(mono)):+.0f} pontos",
                help="Campanhas em que a cultura recebeu pelo menos 80% da água de que precisa "
                     "(WRSI ≥ 80), em média nas três culturas da rotação")
-cols[2].metric("Água pedida", f"{best.raw['etc_total_mm']:.0f} mm",
-               f"{best.raw['etc_total_mm'] - mono.raw['etc_total_mm']:+.0f} mm",
-               delta_color="inverse", help="Soma da ETc das três campanhas")
+cols[2].metric("Água coberta pela chuva", f"{100 * best.indicators['agua']:.0f}%",
+               f"{100 * (best.indicators['agua'] - mono.indicators['agua']):+.0f} pontos",
+               help="Fracção da água de que as culturas precisam que a chuva cobre num ano "
+                    "típico (WRSI mediano, média das três culturas)")
 cols[3].metric("Rendimento relativo",
                f"{100 * sum(best.raw['y_rel']) / len(best.raw['y_rel']):.0f}%",
                f"{100 * (sum(best.raw['y_rel']) - sum(mono.raw['y_rel'])) / 3:+.0f} pontos",

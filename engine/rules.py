@@ -2,7 +2,9 @@
 
 R2 temperatura tolerável   filtro, só quando os limites ECOCROP estão preenchidos
 R3 pH tolerável            filtro, só quando há pH do solo e limites da cultura
-R4 sem repetir a cultura   filtro (a monocultura é calculada à parte, como referência)
+R4 intervalo de retorno    filtro: a mesma cultura não volta dentro das três campanhas
+                           (a monocultura e as rotações de referência são calculadas à parte)
+R9 cereal de base          filtro opcional: pelo menos uma campanha de cereal
 R5 família repetida        penalização no score (family_repeats)
 R8 preferências            filtro (culturas excluídas e obrigatórias)
 
@@ -25,6 +27,7 @@ class Constraints:
 
     excluded: set[str] = field(default_factory=set)      # crop_id que não aceita plantar
     required: set[str] = field(default_factory=set)      # crop_id que têm de aparecer
+    require_staple: bool = False                         # pelo menos um cereal na rotação
 
 
 def thermal_suitability(crop: Crop, mean_temp_c: float) -> float | None:
@@ -58,7 +61,9 @@ def feasible(sequence: list[Crop], soil: SoilProfile, mean_temp_c: float,
              constraints: Constraints) -> bool:
     """True se a rotação passa todos os filtros."""
     ids = [crop.crop_id for crop in sequence]
-    if any(a == b for a, b in zip(ids, ids[1:], strict=False)):          # R4
+    if len(set(ids)) < len(ids):                                          # R4
+        return False
+    if constraints.require_staple and not any(c.group == "cereal" for c in sequence):   # R9
         return False
     if constraints.excluded & set(ids):                                   # R8
         return False

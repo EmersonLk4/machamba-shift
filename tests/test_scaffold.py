@@ -54,46 +54,36 @@ def run_page(relative: str):
 def test_home_without_climate_offers_the_download(data_home):
     app = run_page("app/Home.py")
     assert not app.exception
-    assert app.title[0].value == "Machamba Shift"
+    assert "Chókwè" in app.title[0].value                      # abre directamente no local
     assert [button.label for button in app.button] == ["Descarregar clima do NASA POWER"]
-    assert "Solo por defeito" not in [m.value for m in app.metric]     # é legenda, não métrica
-    assert any("solo franco por defeito" in caption.value for caption in app.caption)
+    assert len(app.metric) == 0
 
 
-def test_home_with_climate_shows_the_site_card(data_home, clim):
+def test_home_with_climate_tells_the_whole_story(data_home, clim):
     from data.climate import save_climate
     save_climate(clim, -24.53, 33.00, demo=True)
     app = run_page("app/Home.py")
-    assert not app.exception
-    assert len(app.button) == 0
+    assert not app.exception and len(app.button) == 0
+    assert [header.value[:2] for header in app.header if header.value[0].isdigit()] == [
+        "1.", "2.", "3."]
     labels = [metric.label for metric in app.metric]
-    assert "Chuva mediana" in labels and "Época de crescimento" in labels
-    assert any("12 campanhas completas" in caption.value for caption in app.caption)
-    assert any("fonte alternativa" in warning.value for warning in app.warning)   # SINTÉTICO
-
-
-def test_scenarios_page(data_home, clim):
-    from data.climate import save_climate
-    app = run_page("app/pages/2_Cenarios.py")
-    assert not app.exception and len(app.metric) == 0          # sem clima: só o aviso
-    save_climate(clim, -24.53, 33.00, demo=True)
-    app = run_page("app/pages/2_Cenarios.py")
-    assert not app.exception and len(app.metric) == 4
-    app.selectbox[0].select("quente").run()
-    assert not app.exception
-    assert app.metric[2].delta == "+2.0 °C"
-    app.selectbox[0].select("ano").run()
-    assert not app.exception and len(app.selectbox) == 2
-
-
-def test_recommendation_page(data_home, clim):
-    from data.climate import save_climate
-    app = run_page("app/pages/1_Recomendacao.py")
-    assert not app.exception and len(app.metric) == 0          # sem clima: só o aviso
-    save_climate(clim, -24.53, 33.00, demo=True)
-    app = run_page("app/pages/1_Recomendacao.py")
-    assert not app.exception
-    assert [metric.label for metric in app.metric] == [
-        "Score", "Água suficiente", "Água pedida", "Rendimento relativo"]
-    assert "Milho" in app.subheader[0].value                   # mantém a cultura actual
+    assert labels[:3] == ["Chuva de uma campanha normal", "Chuva numa campanha má",
+                          "Chuva numa campanha boa"]
+    assert "Campanhas com água suficiente" in labels
+    assert all(metric.help for metric in app.metric)            # cada métrica explica-se
     assert any(text.value.startswith("- Em troca:") for text in app.markdown)
+    assert not any("Qualidade" in expander.label for expander in app.expander)
+    plan = app.subheader[0].value
+    assert any(name in plan for name in ("Milho", "Mapira", "Mexoeira"))   # um cereal
+    scenario = next(box for box in app.selectbox if box.label == "Ver o que teria acontecido")
+    scenario.select("quente").run()
+    assert not app.exception
+
+
+def test_about_page(data_home, clim):
+    from data.climate import save_climate
+    app = run_page("app/pages/1_Sobre_os_dados.py")
+    assert not app.exception
+    save_climate(clim, -24.53, 33.00, demo=True)
+    app = run_page("app/pages/1_Sobre_os_dados.py")
+    assert not app.exception and len(app.dataframe) >= 2

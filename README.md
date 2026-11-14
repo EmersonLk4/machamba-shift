@@ -15,8 +15,8 @@ Falta o polimento da interface, a validação e o pitch (ver `docs/ROADMAP.md`).
 ```text
 machamba-shift/
 ├── app/                  Interface Streamlit
-│   ├── Home.py           Mapa, ficha de clima e de solo, catálogo de culturas
-│   ├── pages/            Recomendação (quatro estratégias e o porquê) e Cenários
+│   ├── Home.py           Página única: a chuva do local, o risco de cada cultura, o plano
+│   ├── pages/            Sobre os dados (fontes, limites, qualidade)
 │   └── components/       Gráficos e etiquetas de origem dos dados
 ├── data/                 Único pacote que faz pedidos de rede
 │   ├── clients/          power.py, soilgrids.py, tesvis.py, openmeteo.py, http.py
@@ -40,7 +40,8 @@ machamba-shift/
 │                         engine_defaults.yaml, economics.csv
 ├── fixtures/             Exemplos dos contratos; raw/ recebe respostas reais
 ├── analysis/             Validação e sensibilidade (Fase 5)
-├── scripts/              setup.ps1, setup.sh, check_apis.py, build_demo.py, run_engine.py
+├── scripts/              setup.ps1, setup.sh, check_apis.py, build_demo.py, run_engine.py,
+│                         test_outlook.py
 ├── tests/
 └── docs/ROADMAP.md       Fases e âmbito a solo
 ```
@@ -63,14 +64,17 @@ machamba-shift/
    solo (FAO-56). Daí saem o WRSI (percentagem das necessidades de água satisfeitas pela
    chuva), a ETc e o rendimento relativo `1 - Ky x (1 - ETa/ETc)`.
 2. **Risco.** Uma campanha com WRSI abaixo de 80 conta como stress; abaixo de 50, como falha.
-3. **Rotações.** Todas as sequências de três campanhas que passam os filtros (sem repetir a
-   cultura em anos seguidos, preferências do agricultor, pH e temperatura quando há dados).
-4. **Indicadores, de 0 a 1.** Água (menos ETc é melhor), solo (índice de azoto), resiliência
+3. **Rotações.** Todas as sequências de três campanhas que passam os filtros (a mesma
+   cultura não volta dentro das três campanhas, pelo menos um cereal de base se pedido,
+   preferências do agricultor, pH e temperatura quando há dados).
+4. **Indicadores, de 0 a 1.** Água (fracção das necessidades que a chuva cobre num ano
+   típico), solo (índice de azoto), resiliência
    (`1 - (P(stress) + P(falha)) / 2`), rendimento relativo, margem (só com preços) e diversidade
    de famílias botânicas.
 5. **Score.** Soma ponderada pelas prioridades do agricultor, menos 0,05 por cada repetição de
    família em anos seguidos. Os limites de normalização são calculados no cenário histórico e
-   congelados, para os cenários serem comparáveis.
+   congelados, para os cenários serem comparáveis. Em caso de empate (até 0,005) prefere-se
+   a rotação que mantém a cultura actual.
 6. **Explicação.** As duas maiores contribuições para a vantagem sobre a monocultura dão as
    frases "porquê"; a mais negativa dá a frase "em troca".
 
@@ -80,6 +84,10 @@ Diferenças em relação ao plano inicial, decididas com os dados reais:
 - O solo é avaliado por um índice de azoto sem unidades, não por um balanço em kg N/ha,
   porque faltam rendimentos e teores de N para todas as culturas.
 - A resiliência conta o stress e a falha, em vez de um único limiar.
+- A água mede a cobertura pela chuva, não a procura: premiar culturas que pedem pouca água
+  onde a água sobra fazia o motor recomendar o mesmo em todo o lado.
+- Não há previsão da campanha. `scripts/test_outlook.py` mostra que a chuva do início não
+  antecipa a do resto em nenhum dos três locais (correlações entre -0,09 e +0,16).
 
 ## O que já funciona e o que não foi testado
 
@@ -88,7 +96,7 @@ Diferenças em relação ao plano inicial, decididas com os dados reais:
 | Parâmetros, contratos, etiquetas de origem | Implementado e testado |
 | Clima real de Chókwè, Gurué e Sussundenga (NASA POWER, 35 campanhas) | Descarregado a 14 de Novembro de 2026 |
 | ET0, campanhas, terços, cenários, tratamento de falhas | Implementado e testado |
-| Motor: balanço hídrico, regras, score, rotações, explicações | Implementado e testado com clima sintético; **falta rever os resultados com o clima real** |
+| Motor: balanço hídrico, regras, score, rotações, explicações | Implementado e testado. Revisto com clima real e corrigido a 14 de Novembro; **a correcção falta rever com clima real** |
 | Chuva do POWER contra o Open-Meteo | Chókwè: correlação 0,64, viés +32%. Gurué: correlação 0,07, pouco fiável |
 | Solo | Solo franco por defeito (hipótese). SoilGrids suspenso |
 | Profundidade radicular e fracção p | Hipóteses em `params/engine_defaults.yaml`, por confirmar na Tabela 22 do FAO-56 |

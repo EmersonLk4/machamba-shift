@@ -54,20 +54,22 @@ def _sentence(name: str, best: StrategyResult, base: StrategyResult, positive: b
         return (f"fica mais exposta aos anos secos: água suficiente em {ok_b}, "
                 f"contra {ok_o} na monocultura de {crop0}. (simulado)")
     if name == "agua":
-        eb, eo = b["etc_total_mm"], o["etc_total_mm"]
-        change = 100 * (eb / eo - 1) if eo else 0.0
+        cb, co = 100 * _mean(b["coverage"]), 100 * _mean(o["coverage"])
         if positive:
-            return (f"Pede menos água: {eb:.0f} mm nas três campanhas, contra {eo:.0f} mm "
-                    f"({change:+.0f}%). (simulado)")
-        return f"pede mais água: {eb:.0f} mm nas três campanhas, contra {eo:.0f} mm. (simulado)"
+            return (f"A chuva chega melhor: num ano típico cobre {cb:.0f}% da água de que as "
+                    f"culturas precisam, contra {co:.0f}% na monocultura de {crop0}. (simulado)")
+        return (f"a chuva cobre menos das necessidades: {cb:.0f}% num ano típico, contra "
+                f"{co:.0f}% na monocultura de {crop0}. (simulado)")
     if name == "solo":
         legumes = b["legumes"]
         if positive and legumes:
             shares = _join([f"{item['ndfa']:.0f}%" for item in legumes])
             names = _join([item["name"].lower() for item in legumes])
-            kind = "uma leguminosa que obtém" if len(legumes) == 1 else "leguminosas que obtêm"
+            one = len(legumes) == 1
+            kind = "uma leguminosa que obtém" if one else "leguminosas que obtêm"
+            need = "precisa" if one else "precisam"
             return (f"Poupa o solo: inclui {names}, {kind} do ar cerca de {shares} do azoto "
-                    f"de que precisa, em vez de só o retirar. (literatura)")
+                    f"de que {need}, em vez de só o retirar. (literatura)")
         if positive:
             return (f"Poupa o solo: retira menos azoto do que três campanhas de {crop0}. "
                     f"(índice qualitativo)")

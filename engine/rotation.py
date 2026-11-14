@@ -72,6 +72,7 @@ def raw_values(sequence: tuple[Crop, ...], stats: dict[str, dict[str, float]], r
         "wrsi_median": [round(item["wrsi_median"], 1) for item in per_crop],
         "p_stress": [round(item["p_stress"], 3) for item in per_crop],
         "p_failure": [round(item["p_failure"], 3) for item in per_crop],
+        "coverage": [round(item["wrsi_median"] / 100, 3) for item in per_crop],
         "etc_mm": [round(value, 0) for value in etc],
         "etc_total_mm": round(sum(etc), 0),
         "y_rel": [round(value, 3) for value in yields],
@@ -91,7 +92,7 @@ def to_indicators(raw: dict[str, object], bounds: dict[str, tuple[float, float]]
     """Indicadores em [0, 1] a partir dos valores brutos e dos limites congelados."""
     margin = raw["margin"]
     return {
-        "agua": 1 - minmax(raw["etc_total_mm"], *bounds["etc"]),
+        "agua": sum(raw["coverage"]) / horizon,
         "solo": minmax(raw["n_index"], *bounds["n_index"]),
         "resiliencia": sum(raw["resilience"]) / horizon,
         "rendimento": sum(raw["y_rel"]) / horizon,
@@ -141,7 +142,7 @@ def recommend(site: Site, clim: pd.DataFrame, soil: SoilProfile, crops: list[str
                   if feasible(list(sequence), soil, mean_temp, constraints)]
     if not candidates:
         raise ValueError("Nenhuma rotação viável com estas culturas e restrições. "
-                         "É preciso aceitar pelo menos duas culturas diferentes.")
+                         "É preciso aceitar pelo menos três culturas diferentes.")
 
     monoculture = (baseline_crop,) * horizon
     with_legume = None
@@ -152,9 +153,7 @@ def recommend(site: Site, clim: pd.DataFrame, soil: SoilProfile, crops: list[str
         return raw_values(sequence, source, rules, defaults, mean_temp, economics)
 
     # Limites congelados no cenário histórico, para os cenários serem comparáveis.
-    etc_hist = [stats_hist[crop.crop_id]["etc_median_mm"] for crop in pool]
     bounds: dict[str, tuple[float, float] | None] = {
-        "etc": (horizon * min(etc_hist), horizon * max(etc_hist)),
         "n_index": n_index_bounds(pool, defaults, horizon),
         "margin": None,
     }
@@ -174,21 +173,22 @@ def recommend(site: Site, clim: pd.DataFrame, soil: SoilProfile, crops: list[str
                         for key, item in indicators.items()},
             raw=raw)
 
+    # Em caso de empate (até 0,005), prefere-se a rotação que mantém a cultura actual.
     ranked = sorted((evaluate(sequence, "candidata") for sequence in candidates),
-                    key=lambda item: (-item.score, item.sequence))
+                    key=lambda item: (-round(item.score / 0.005),
+                                      baseline_crop.crop_id not in item.sequence,
+                                      -item.score, item.sequence))
     best = ranked[0]
     best.label = "recomendada"
     base = evaluate(monoculture, "monocultura")
     strategies = [base]
-    conventional = next((item for item in ranked
-                         if baseline_crop.crop_id in item.sequence
-                         and not any(catalogue[key].is_legume for key in item.sequence)), None)
-    if conventional is not None and conventional is not best:
-        conventional.label = "convencional"
-        strategies.append(conventional)
-    elif conventional is best:
-        strategies.append(evaluate(tuple(catalogue[key] for key in best.sequence),
-                                   "convencional"))
+    # Convencional: a cultura actual alternada com outro cereal aceite (o de melhor score).
+    others = [crop for crop in selected
+              if crop.group == "cereal" and crop.crop_id != baseline_crop.crop_id]
+    if others and horizon == 3:
+        strategies.append(max(
+            (evaluate((baseline_crop, crop, baseline_crop), "convencional") for crop in others),
+            key=lambda item: item.score))
     if with_legume is not None:
         strategies.append(evaluate(with_legume, "com_leguminosa"))
     strategies.append(best)
@@ -226,6 +226,7 @@ def recommend(site: Site, clim: pd.DataFrame, soil: SoilProfile, crops: list[str
             "Sem escoamento superficial, rega ou ascensão capilar.",
             "O rendimento relativo conta só a água e o efeito leguminosa -> cereal.",
             "O solo é avaliado por um índice de azoto sem unidades, não por um balanço em kg.",
+            "A mesma cultura não se repete dentro das três campanhas.",
         ],
         provenance={
             "clima": f"{source} ({scenario_nature(scenario)})",

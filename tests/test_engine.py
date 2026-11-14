@@ -179,10 +179,14 @@ def test_rotation_multiplier_only_for_cereal_after_legume(crops):
 def test_rules(crops, soil):
     milho, mapira, nhemba, soja = (crops[k] for k in ("milho", "mapira", "feijao_nhemba", "soja"))
     free = Constraints()
-    assert feasible([milho, nhemba, milho], soil, 25, free)
+    assert feasible([milho, nhemba, mapira], soil, 25, free)
     assert not feasible([milho, milho, nhemba], soil, 25, free)                       # R4
+    assert not feasible([milho, nhemba, milho], soil, 25, free)       # R4: volta cedo de mais
     assert not feasible([milho, nhemba, mapira], soil, 25, Constraints(excluded={"mapira"}))
-    assert not feasible([mapira, nhemba, mapira], soil, 25, Constraints(required={"milho"}))
+    assert not feasible([mapira, nhemba, soja], soil, 25, Constraints(required={"milho"}))
+    staple = Constraints(require_staple=True)                                          # R9
+    assert feasible([nhemba, milho, soja], soil, 25, staple)
+    assert not feasible([nhemba, crops["gergelim"], soja], soil, 25, staple)
     assert family_repeats([milho, mapira, nhemba]) == 1
     assert family_repeats([milho, milho, milho]) == 2
     assert family_repeats([nhemba, soja, nhemba]) == 2
@@ -197,11 +201,12 @@ def test_thermal_and_ph_rules_apply_only_when_parameters_exist(crops, soil):
     assert thermal_suitability(filled, 14) == pytest.approx(0.5)
     assert thermal_suitability(filled, 35) == pytest.approx(0.5)
     assert thermal_suitability(filled, 45) == 0
-    assert not feasible([filled, crops["soja"], filled], soil, 45, Constraints())     # R2
+    assert not feasible([filled, crops["soja"], crops["mapira"]], soil, 45, Constraints())  # R2
     assert ph_ok(filled, soil)                                # pH do solo desconhecido
     acid = replace(soil, ph=4.2)
     assert not ph_ok(filled, acid) and ph_ok(milho, acid)
-    assert not feasible([filled, crops["soja"], filled], acid, 24, Constraints())     # R3
+    assert not feasible([filled, crops["soja"], crops["mapira"]], acid, 24, Constraints())  # R3
+    assert feasible([filled, crops["soja"], crops["mapira"]], soil, 24, Constraints())
 
 
 # --- Score ------------------------------------------------------------------------
@@ -237,20 +242,22 @@ def test_recommend_returns_the_four_strategies(result, crops):
     assert [item.label for item in result.strategies] == list(STRATEGY_LABELS)
     assert result.strategy("monocultura").sequence == ["milho"] * 3
     assert result.strategy("com_leguminosa").sequence == ["milho", "feijao_nhemba", "milho"]
-    conventional = result.strategy("convencional")
-    assert "milho" in conventional.sequence
-    assert not any(crops[key].is_legume for key in conventional.sequence)
+    conventional = result.strategy("convencional").sequence
+    assert conventional[0] == conventional[2] == "milho"
+    assert crops[conventional[1]].group == "cereal" and conventional[1] != "milho"
     best = result.strategy("recomendada")
-    assert all(a != b for a, b in zip(best.sequence, best.sequence[1:], strict=False))
-    assert result.candidates == 9 * 8 * 8 and result.seasons == 12
+    assert len(set(best.sequence)) == 3                       # nenhuma cultura volta
+    assert result.candidates == 9 * 8 * 7 and result.seasons == 12
 
 
 def test_recommended_is_the_top_of_the_ranking(result):
     scores = [row["score"] for row in result.ranking]
-    assert scores == sorted(scores, reverse=True) and len(scores) == 10
+    assert len(scores) == 10
+    # ordenado por score, com empates até 0,005 resolvidos a favor da cultura actual
+    assert all(a >= b - 0.005 for a, b in zip(scores, scores[1:], strict=False))
     best = result.strategy("recomendada")
     assert result.ranking[0]["sequence"] == best.sequence
-    assert best.score >= max(item.score for item in result.strategies)
+    assert best.score >= max(scores) - 0.005
 
 
 def test_indicators_are_bounded_and_margin_is_left_out_without_prices(result):
@@ -293,7 +300,11 @@ def test_farmer_constraints_are_respected(clim, soil, site, rules, crops):
     for row in out.ranking:
         assert "milho" in row["sequence"]
         assert not {"mexoeira", "gergelim"} & set(row["sequence"])
-    assert out.candidates < 7 * 6 * 6
+    assert out.candidates < 7 * 6 * 5
+    staple = recommend(site, clim, soil, list(crops), {"solo": 10}, rules, catalogue=crops,
+                       constraints=Constraints(require_staple=True))
+    assert all(any(crops[key].group == "cereal" for key in row["sequence"])
+               for row in staple.ranking)
 
 
 def test_weights_change_the_recommendation_target(clim, soil, site, rules, crops):
@@ -301,8 +312,11 @@ def test_weights_change_the_recommendation_target(clim, soil, site, rules, crops
     best = only_soil.strategy("recomendada")
     assert all(crops[key].is_legume for key in best.sequence)      # só o azoto conta
     only_water = recommend(site, clim, soil, list(crops), {"agua": 10}, rules, catalogue=crops)
-    lowest = min(only_water.crop_stats, key=lambda key: only_water.crop_stats[key]["etc_median_mm"])
-    assert lowest in only_water.strategy("recomendada").sequence
+    stats = only_water.crop_stats
+    top3 = sorted(stats, key=lambda key: -stats[key]["wrsi_median"])[:3]
+    chosen = only_water.strategy("recomendada")
+    floor = sum(stats[key]["wrsi_median"] for key in top3) / 300
+    assert chosen.indicators["agua"] >= floor - 0.005
 
 
 def test_bounds_are_frozen_across_scenarios(clim, soil, site, rules, crops):
@@ -310,8 +324,9 @@ def test_bounds_are_frozen_across_scenarios(clim, soil, site, rules, crops):
     base = recommend(*args, catalogue=crops).strategy("monocultura")
     hot = recommend(*args, scenario="quente", catalogue=crops).strategy("monocultura")
     dry = recommend(*args, scenario="seco_parametrico", catalogue=crops).strategy("monocultura")
-    assert hot.indicators["agua"] < base.indicators["agua"]          # pede mais água
-    assert dry.indicators["agua"] == base.indicators["agua"]         # a ETc não muda com a chuva
+    assert hot.indicators["agua"] <= base.indicators["agua"]         # mais ET0, menos cobertura
+    assert dry.indicators["agua"] <= base.indicators["agua"]         # menos chuva, menos cobertura
+    assert hot.raw["etc_total_mm"] > base.raw["etc_total_mm"]
     assert dry.indicators["resiliencia"] <= base.indicators["resiliencia"]
     assert dry.indicators["rendimento"] <= base.indicators["rendimento"]
     assert dry.score <= base.score
@@ -335,10 +350,19 @@ def test_margin_enters_the_score_when_economics_is_filled(clim, soil, site, rule
     assert not any("Margem" in flag for flag in out.flags)
 
 
-def test_needs_at_least_two_crops(clim, soil, site, rules, crops):
+def test_needs_at_least_three_crops(clim, soil, site, rules, crops):
     with pytest.raises(ValueError, match="Nenhuma rotação viável"):
-        recommend(site, clim, soil, ["milho"], rules["weights"]["equilibrado"], rules,
+        recommend(site, clim, soil, ["milho", "soja"], rules["weights"]["equilibrado"], rules,
                   catalogue=crops)
+
+
+def test_ties_are_broken_in_favour_of_the_current_crop(clim, soil, site, rules, crops):
+    # só a diversidade conta: todas as rotações de três famílias empatam
+    out = recommend(site, clim, soil, list(crops), {"diversidade": 10}, rules, catalogue=crops)
+    assert "milho" in out.strategy("recomendada").sequence
+    other = recommend(site, clim, soil, list(crops), {"diversidade": 10}, rules, catalogue=crops,
+                      current_crop="gergelim")
+    assert "gergelim" in other.strategy("recomendada").sequence
 
 
 def test_crop_statistics_cover_every_requested_crop(clim, soil, site, rules, crops, defaults):
@@ -352,7 +376,8 @@ def test_crop_statistics_cover_every_requested_crop(clim, soil, site, rules, cro
 
 def make(label, indicators, **raw) -> StrategyResult:
     base = {"names": ["Milho"] * 3, "p_stress": [0.5] * 3, "p_failure": [0.2] * 3,
-            "etc_total_mm": 1500, "y_rel": [0.5] * 3, "families": 1, "legumes": []}
+            "etc_total_mm": 1500, "coverage": [0.6] * 3, "y_rel": [0.5] * 3, "families": 1,
+            "legumes": []}
     full = dict.fromkeys(INDICATORS, 0.5) | {"margem": None} | indicators
     return StrategyResult(label, ["x"] * 3, 0.0, full, {**base, **raw})
 

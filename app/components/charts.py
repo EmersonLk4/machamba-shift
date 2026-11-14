@@ -84,3 +84,43 @@ def indicators_by_strategy(strategies) -> go.Figure:
         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
     )
     return figure
+
+
+RISK_STYLE = [
+    ("ok", "Água suficiente", "#1baf7a"),
+    ("stress", "Faltou água", "#eda100"),
+    ("failure", "Falha grave", "#d03b3b"),
+]
+
+
+def crop_risk(crop_stats: dict, names: dict[str, str]) -> go.Figure:
+    """Para cada cultura, em quantas de cada 10 campanhas houve água suficiente, falta ou falha."""
+    order = sorted(crop_stats, key=lambda key: (1 - crop_stats[key]["p_stress"],
+                                                -crop_stats[key]["p_failure"]))
+    parts = {
+        "ok": [10 * (1 - crop_stats[key]["p_stress"]) for key in order],
+        "stress": [10 * (crop_stats[key]["p_stress"] - crop_stats[key]["p_failure"])
+                   for key in order],
+        "failure": [10 * crop_stats[key]["p_failure"] for key in order],
+    }
+    figure = go.Figure()
+    for key, label, color in RISK_STYLE:
+        figure.add_bar(
+            y=[names[item] for item in order], x=parts[key], name=label, orientation="h",
+            marker={"color": color, "line": {"color": "rgba(255,255,255,0.9)", "width": 2}},
+            text=[f"{value:.0f}" if value >= 0.5 else "" for value in parts[key]],
+            textposition="inside", insidetextanchor="middle", textangle=0,
+            textfont={"color": "#1a1a19", "size": 13},
+            hovertemplate="%{y} · " + label + " em %{x:.1f} de cada 10 campanhas<extra></extra>",
+        )
+    figure.update_layout(
+        barmode="stack", bargap=0.3, height=60 + 34 * len(order),
+        margin={"l": 10, "r": 10, "t": 30, "b": 10},
+        legend={"orientation": "h", "y": 1.0, "yanchor": "bottom", "x": 0, "title": None,
+                "traceorder": "normal"},
+        xaxis={"range": [0, 10], "dtick": 2, "title": "Em cada 10 campanhas",
+               "gridcolor": "rgba(137,135,129,0.25)", "zeroline": False},
+        yaxis={"title": None, "showgrid": False},
+        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+    )
+    return figure

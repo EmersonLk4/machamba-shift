@@ -67,15 +67,17 @@ def main(argv: list[str]) -> int:
             continue
         soil = get_soil(site.lat, site.lon, site_id=site_id)
         print(f"  Solo: {soil.texture}, {soil.taw_mm_per_m:.0f} mm/m ({soil.source}) · "
-              f"pesos: equilibrado")
+              f"pesos: equilibrado · pelo menos um cereal")
         for scenario in scenarios:
             result = recommend(site, clim, soil, list(catalogue), rules["weights"]["equilibrado"],
                                rules, scenario=scenario, catalogue=catalogue,
-                               economics=economics)
+                               economics=economics,
+                               constraints=Constraints(require_staple=True))
             show(result, catalogue)
             kept = recommend(site, clim, soil, list(catalogue), rules["weights"]["equilibrado"],
                              rules, scenario=scenario, catalogue=catalogue, economics=economics,
-                             constraints=Constraints(required={site.current_crop}))
+                             constraints=Constraints(required={site.current_crop},
+                                                     require_staple=True))
             print(f"  Mantendo {catalogue[site.current_crop].name_pt.lower()} pelo menos uma vez: "
                   + "; ".join(f"{' > '.join(row['names'])} ({row['score']:.3f})"
                               for row in kept.ranking[:3]))
