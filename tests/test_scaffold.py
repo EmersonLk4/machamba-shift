@@ -135,7 +135,12 @@ def test_home_shows_map_layers_when_the_grid_exists(data_home, clim):
     assert not app.exception
     layer = next(radio for radio in app.radio if radio.label == "Vista")
     assert layer.options[0] == "Aqui (satélite)"
-    assert layer.options[-2] == "Região: Outubro de 2026"
-    for option in ("normal", "ano", "agora", "solo"):
+    assert layer.options[-3] == "Região: Outubro de 2026"
+    assert layer.options[-1] == "Desenhar região"
+    app.session_state["region"] = [(-25.0, 32.0), (-25.0, 34.0), (-23.0, 34.0), (-23.0, 32.0)]
+    for option in ("normal", "ano", "agora", "solo", "desenhar"):
         layer.set_value(option).run()
         assert not app.exception
+    assert "Zonas NASA" in [metric.label for metric in app.metric]
+    next(button for button in app.button if button.label.startswith("Analisar")).click().run()
+    assert not app.exception and app.session_state["point"] == (-24.0, 33.0)

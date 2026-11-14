@@ -116,3 +116,38 @@ def test_trend_detects_a_real_change_and_ignores_noise():
     noise = trend(pd.Series(rng.normal(600, 150, 35)))
     assert not noise["significant"]
     assert not trend(pd.Series([1.0, 2.0, 3.0]))["significant"]       # poucos anos
+
+
+def test_region_geometry_and_summary():
+    import numpy as np
+    import pandas as pd
+
+    from data import grid, region
+    square = [(-25.0, 32.0), (-25.0, 34.0), (-23.0, 34.0), (-23.0, 32.0)]
+    assert region.contains(square, -24.0, 33.0) and not region.contains(square, -22.0, 33.0)
+    assert region.centroid(square) == pytest.approx((-24.0, 33.0))
+    assert region.area_km2(square) == pytest.approx(221.14 * 203.4, rel=0.02)
+    feature = {"geometry": {"type": "Polygon", "coordinates": [
+        [[32.0, -25.0], [34.0, -25.0], [34.0, -23.0], [32.0, -23.0], [32.0, -25.0]]]}}
+    assert region.polygon_from_geojson(feature) == square
+    assert region.polygon_from_geojson({"geometry": {"type": "Point"}}) is None
+
+    cells = grid.grid_cells()
+    seasons = pd.DataFrame([{"lat": lat, "lon": lon, "season": year,
+                             "rain_mm": 500.0 + 20 * (year - 1990) - 10 * lat, "tmean_c": 25.0}
+                            for lat, lon in cells for year in range(1990, 2000)])
+    now = pd.DataFrame([{"lat": lat, "lon": lon, "season": 2026, "months": "Outubro",
+                         "rain_mm": 30.0, "rain_normal_mm": 40.0, "gwet_latest": 0.3}
+                        for lat, lon in cells])
+    summary = region.region_summary(square, seasons, now)
+    inside = [cell for cell in cells if region.contains(square, *cell)]
+    assert summary["cells"] == len(inside) > 4 and not summary["fallback"]
+    assert summary["cell_min_mm"] <= summary["rain_normal_mm"] <= summary["cell_max_mm"]
+    assert summary["now_pct"] == pytest.approx(75.0) and summary["soil_pct"] == pytest.approx(30)
+    assert len(summary["series"]) == 10 and set(summary["series"]["tercile"]) == {
+        "seco", "normal", "favoravel"}
+    tiny = [(-24.5, 33.0), (-24.5, 33.05), (-24.45, 33.05)]
+    small = region.region_summary(tiny, seasons, now)
+    assert small["cells"] == 1 and small["fallback"]
+    assert region.region_summary([(0.0, 0.0), (0.0, 1.0), (1.0, 1.0)], seasons, now) is None
+    assert np.isfinite(small["area_km2"])

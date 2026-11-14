@@ -91,6 +91,36 @@ CHIP = ("display:inline-block;white-space:nowrap;background:#ffffff;color:#1a1a1
         "box-shadow:0 1px 3px rgba(0,0,0,.35);transform:translate(-50%,-50%)")
 
 
+def draw_map(point: tuple[float, float], polygon: list[tuple[float, float]] | None,
+             cells: list[dict] | None) -> folium.Map:
+    """Mapa para desenhar uma região irregular; mostra a região guardada e as suas células."""
+    from folium.plugins import Draw
+    fmap = _satellite(list(point), 7)
+    for cell in cells or []:
+        folium.Rectangle(
+            bounds=[[cell["lat"] - LAT_STEP / 2, cell["lon"] - LON_STEP / 2],
+                    [cell["lat"] + LAT_STEP / 2, cell["lon"] + LON_STEP / 2]],
+            color="#ffffff", weight=1, fill=True, fill_color="#2a78d6", fill_opacity=0.18,
+            tooltip="Zona do NASA POWER usada no resumo").add_to(fmap)
+    if polygon:
+        folium.Polygon([list(vertex) for vertex in polygon], color="#facc15", weight=3,
+                       fill=True, fill_color="#facc15", fill_opacity=0.08,
+                       tooltip="Região em análise").add_to(fmap)
+        fmap.fit_bounds([[min(lat for lat, _ in polygon), min(lon for _, lon in polygon)],
+                         [max(lat for lat, _ in polygon), max(lon for _, lon in polygon)]],
+                        padding=(40, 40))
+    shape = {"shapeOptions": {"color": "#facc15", "weight": 3}}
+    Draw(export=False, position="topleft",
+         draw_options={"polygon": {**shape, "allowIntersection": False}, "rectangle": shape,
+                       "polyline": False, "circle": False, "marker": False,
+                       "circlemarker": False},
+         edit_options={"edit": False, "remove": False}).add_to(fmap)
+    folium.CircleMarker(list(point), radius=7, color="#08111f", weight=2, fill=True,
+                        fill_color="#ffffff", fill_opacity=1,
+                        tooltip="Ponto em análise").add_to(fmap)
+    return fmap
+
+
 def local_map(sites: dict, point: tuple[float, float], cell: tuple[float, float],
               chips: list[tuple[float, float, str, str]]) -> folium.Map:
     """Vista de satélite centrada no ponto, com a zona que os dados representam.

@@ -406,7 +406,7 @@ def test_explain_when_nothing_beats_the_monoculture():
 
 
 def test_sowing_window_and_report(clim, rules):
-    from app.components.report import build_report
+    from app.components.report import build_pdf, build_report
     from data.features import season_table, site_summary
     from data.soil import default_soil
     from engine.params import load_crops, load_engine_defaults, load_sites
@@ -424,3 +424,6 @@ def test_sowing_window_and_report(clim, rules):
                         result, names, None, window, "milho", "SINTÉTICO")
     assert html.startswith("<!doctype html>") and "Plano recomendado" in html
     assert "15/11" in html and "Condições recentes" not in html
+    pdf = build_pdf(site.name, site.lat, site.lon, site_summary(season_table(clim, rules)),
+                    result, names, None, window, "milho", "SINTÉTICO")
+    assert pdf.startswith(b"%PDF") and len(pdf) > 3000

@@ -28,8 +28,8 @@ from app.components.charts import (  # noqa: E402
     temperature_by_season,
 )
 from app.components.hover import hover_chart  # noqa: E402
-from app.components.maps import add_cells, base_map, local_map  # noqa: E402
-from app.components.report import build_report  # noqa: E402
+from app.components.maps import add_cells, base_map, draw_map, local_map  # noqa: E402
+from app.components.report import build_pdf, build_report  # noqa: E402
 from data.climate import (  # noqa: E402
     get_climate,
     get_recent,
@@ -46,6 +46,7 @@ from data.features import (  # noqa: E402
     trend,
 )
 from data.grid import cell_of, load_grid, normals  # noqa: E402
+from data.region import polygon_from_geojson, region_summary  # noqa: E402
 from data.scenarios import apply_scenario  # noqa: E402
 from data.soil import get_soil  # noqa: E402
 from engine.params import (  # noqa: E402
@@ -143,13 +144,19 @@ st.markdown(f'<div class="ms-nav"><span class="ms-brand">Machamba<i> Shift</i></
             unsafe_allow_html=True)
 st.title(place)
 
+
+def section(number: int, code: str, title: str, anchor: str, help: str) -> None:
+    """Cabeçalho de secção com âncora para a barra de navegação."""
+    st.header(title, anchor=anchor, help=help)
+
+
 clim = load_cached_climate(lat, lon)
 recent_frame = get_recent(lat, lon)
 recent = recent_summary(recent_frame) if recent_frame is not None else None
 
 # --- Mapa e tempo ---------------------------------------------------------------
-st.header("Mapa e tempo", anchor="mapa",
-          help="Vista local: imagem de satélite e as condições dos últimos dias na zona. "
+section(1, "Geo_espacial", "Mapa e tempo", "mapa",
+        help="Vista local: imagem de satélite e as condições dos últimos dias na zona. "
                "Vista regional: chuva por zona, antes e agora. Clique no mapa para analisar "
                "outro ponto. Fonte: NASA POWER (valores modelados, zonas de 55 por 65 km).")
 grid = load_grid()
@@ -162,6 +169,7 @@ if grid is not None:
         views["agora"] = (f"Região: {grid_now['months'].iloc[0]} de "
                           f"{int(grid_now['season'].iloc[0])}")
         views["solo"] = "Região: humidade do solo"
+    views["desenhar"] = "Desenhar região"
 left, right = st.columns([3, 1])
 view = left.radio("Vista", list(views), format_func=views.get, horizontal=True,
                   label_visibility="collapsed")
@@ -184,6 +192,10 @@ if view == "local":
             chips.append((-0.09, -0.3, f"🌱 solo {100 * recent['soil_root']:.0f}%",
                           "Humidade do solo na zona das raízes (0 = seco, 100 = saturado)"))
     fmap = local_map(sites, (lat, lon), cell_of(lat, lon), chips)
+elif view == "desenhar":
+    polygon = st.session_state.get("region")
+    area = region_summary(polygon, grid_seasons, grid_now) if polygon else None
+    fmap = draw_map((lat, lon), polygon, area["cell_list"] if area else None)
 else:
     fmap = base_map(sites, (lat, lon))
     normal = normals(grid_seasons)
@@ -219,9 +231,55 @@ else:
                   "Humidade do solo na zona das raízes: {wet:.0f}% (0 = seco, 100 = saturado)",
                   False, "Humidade do solo na zona das raízes (%)", 0, 100,
                   sites=sites, point=(lat, lon))
+drawing = view == "desenhar"
 result_map = st_folium(fmap, height=520, use_container_width=True,
-                       returned_objects=["last_clicked"], key=f"map_{view}")
-clicked = (result_map or {}).get("last_clicked")
+                       returned_objects=["last_active_drawing"] if drawing else ["last_clicked"],
+                       key=f"map_{view}")
+if drawing:
+    drawn = polygon_from_geojson((result_map or {}).get("last_active_drawing"))
+    if drawn and drawn != st.session_state.get("region"):
+        st.session_state["region"] = drawn
+        st.rerun()
+    if polygon is None:
+        st.caption("Use o botão de polígono no canto do mapa: clique em cada vértice e feche "
+                   "no primeiro ponto.")
+    elif area is None:
+        st.warning("A região desenhada não tem zonas com dados (mar ou fora de Moçambique).")
+    else:
+        cols = st.columns(5)
+        cols[0].metric("Área", f"{area['area_km2']:,.0f} km²".replace(",", " "),
+                       help="Área aproximada do polígono desenhado.")
+        cols[1].metric("Zonas NASA", f"{area['cells']}",
+                       help="Zonas do NASA POWER (55 por 65 km) cujo centro está na região. "
+                            "Os números são a média dessas zonas.")
+        cols[2].metric("Campanha normal", f"{area['rain_normal_mm']:.0f} mm",
+                       help=f"Chuva de Outubro a Abril, média da região. Entre zonas vai de "
+                            f"{area['cell_min_mm']:.0f} a {area['cell_max_mm']:.0f} mm.")
+        cols[3].metric("Campanha má", f"{area['rain_bad_mm']:.0f} mm",
+                       help="Uma em cada 10 campanhas teve menos chuva do que isto.")
+        cols[4].metric("Chuva agora", "—" if area["now_pct"] is None
+                       else f"{area['now_pct']:.0f}%",
+                       help=f"Chuva de {area['now_months'] or 'meses recentes'} face ao normal "
+                            "desses meses, média da região.")
+        if area["fallback"]:
+            st.caption("A região é mais pequena do que uma zona do NASA POWER: os valores são "
+                       "os da zona que a contém.")
+        st.markdown("**Chuva média da região em cada campanha**")
+        hover_chart(rain_by_season(area["series"]), "cool")
+
+        def use_centre() -> None:
+            st.session_state["point"] = tuple(round(value, 4) for value in area["centroid"])
+
+        def clear_region() -> None:
+            st.session_state.pop("region", None)
+
+        left, right, _ = st.columns([2, 1, 2])
+        left.button("Analisar culturas e plano no centro da região", on_click=use_centre,
+                    type="primary", width="stretch",
+                    help="As culturas e o plano precisam de clima diário, que é pedido para "
+                         "um ponto: o centro da região.")
+        right.button("Limpar região", on_click=clear_region, width="stretch")
+clicked = None if drawing else (result_map or {}).get("last_clicked")
 if clicked:
     point = (round(clicked["lat"], 4), round(clicked["lng"], 4))
     if point != st.session_state["point"]:
@@ -241,8 +299,8 @@ if clim is None:
         st.stop()
 
 # --- Solo, ar e vento -------------------------------------------------------------
-st.header("Solo, ar e vento", anchor="condicoes",
-          help="Condições dos últimos dias na zona, pelo NASA POWER. São valores modelados "
+section(2, "Telemetria", "Solo, ar e vento", "condicoes",
+        help="Condições dos últimos dias na zona, pelo NASA POWER. São valores modelados "
                "para uma área de cerca de 50 km, não medições no terreno. O POWER publica com "
                "cerca de três dias de atraso.")
 if recent is None:
@@ -284,8 +342,8 @@ def describe(change: dict, unit: str, digits: int) -> str:
     return f"{10 * change['slope']:+.{digits}f} {unit}/déc."
 
 
-st.header("Histórico NASA", anchor="historico",
-          help="Cada ponto é uma campanha real (Outubro a Abril) desde 1990. Tendência pelo "
+section(3, "Arquivo", "Histórico NASA", "historico",
+        help="Cada ponto é uma campanha real (Outubro a Abril) desde 1990. Tendência pelo "
                "teste de Mann-Kendall: 'sem tendência clara' quer dizer que a variação entre "
                "anos é maior do que qualquer mudança gradual.")
 if not source.startswith("NASA"):
@@ -352,8 +410,8 @@ with by_month:
             hover_chart(monthly_rain(view, name, compare=year is not None), "cool")
 
 # --- Motor ---------------------------------------------------------------------------
-st.header("Culturas", anchor="culturas",
-          help="Para cada cultura, o Machamba Shift repete todas as campanhas reais e conta "
+section(4, "Risco", "Culturas", "culturas",
+        help="Para cada cultura, o Machamba Shift repete todas as campanhas reais e conta "
                "em quantas a chuva chegou. Água suficiente: cobriu pelo menos 80% do que a "
                "cultura precisava. Falha grave: cobriu menos de metade. São estimativas para "
                "comparar culturas, não previsões de colheita.")
@@ -408,8 +466,8 @@ def share_ok(item) -> float:
     return 1 - sum(item.raw["p_stress"]) / len(item.raw["p_stress"])
 
 
-st.header("Plano para três campanhas", anchor="plano",
-          help=f"Se as próximas campanhas forem como as {result.seasons} analisadas, este é o "
+section(5, "Rotação", "Plano para três campanhas", "plano",
+        help=f"Se as próximas campanhas forem como as {result.seasons} analisadas, este é o "
                "plano que mais vezes se sai bem. Não é uma previsão: ninguém sabe se o próximo "
                "ano será seco ou chuvoso; o plano é escolhido para aguentar os dois.")
 st.subheader(" → ".join(best.raw["names"]))
@@ -477,8 +535,8 @@ with st.expander("O que esta ferramenta não sabe"):
                 "de solo nem o conhecimento do extensionista.")
 
 # --- Perguntas ---------------------------------------------------------------------------
-st.header("Perguntas", anchor="perguntas",
-          help="Respostas calculadas a partir dos mesmos dados desta página. Não há modelo de "
+section(6, "Consulta", "Perguntas", "perguntas",
+        help="Respostas calculadas a partir dos mesmos dados desta página. Não há modelo de "
                "linguagem: nenhuma resposta inventa números.")
 crop0 = NAMES[current].lower()
 QUESTIONS = {
@@ -528,10 +586,13 @@ else:
 st.info(answer)
 
 # --- Relatório ----------------------------------------------------------------------------
-st.header("Relatório", anchor="relatorio",
-          help="Uma página com o plano, o risco de cada cultura, as datas de sementeira e os "
+section(7, "Exportar", "Relatório", "relatorio",
+        help="Uma página com o plano, o risco de cada cultura, as datas de sementeira e os "
                "limites, para imprimir ou enviar. Abre em qualquer navegador.")
-report = build_report(place, lat, lon, summary, result, NAMES, recent, window, current, source)
-st.download_button("Descarregar relatório deste local", report,
-                   file_name=f"machamba-shift-{place.lower().replace(' ', '-')}.html",
-                   mime="text/html", type="primary")
+args = (place, lat, lon, summary, result, NAMES, recent, window, current, source)
+stem = f"machamba-shift-{place.lower().replace(' ', '-')}"
+left, right, _ = st.columns([1, 1, 2])
+left.download_button("Relatório em PDF", build_pdf(*args), file_name=f"{stem}.pdf",
+                     mime="application/pdf", type="primary", width="stretch")
+right.download_button("Relatório em HTML", build_report(*args), file_name=f"{stem}.html",
+                      mime="text/html", width="stretch")
