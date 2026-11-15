@@ -8,7 +8,7 @@ recommends a three-season rotation with the reasons and the trade-offs.
 NASA Space Apps Challenge 2026 · Challenge: *Field Shift: Adapting Farms with NASA Data* ·
 solo entry. *Machamba* is the Mozambican word for a family farm.
 
-- **Live demo:** _add the public link here after deployment_
+- **Live demo:** https://machamba-shift-mouqsvyyykhuyxuiypk8sg.streamlit.app/
 - **Versão em português:** [README.pt.md](README.pt.md)
 
 ## What it does
