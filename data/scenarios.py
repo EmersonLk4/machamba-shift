@@ -65,3 +65,20 @@ def apply_scenario(clim: pd.DataFrame, scenario: str, rules: dict, lat: float) -
             out[column] = out[column] + delta
         out = add_et0(out, lat)
     return out
+
+
+def adjust_climate(clim: pd.DataFrame, rain_pct: float, delta_t_c: float,
+                   lat: float) -> pd.DataFrame:
+    """Clima hipotético: chuva diária alterada em rain_pct por cento e temperaturas somadas
+    de delta_t_c graus, com a ET0 recalculada. É uma simulação, não uma previsão: as datas
+    e a sequência dos dias de chuva ficam as do passado.
+    """
+    if rain_pct == 0 and delta_t_c == 0:
+        return clim
+    out = clim.copy()
+    out["p_mm"] = out["p_mm"] * (1 + rain_pct / 100)
+    if delta_t_c:
+        for column in ("tmax_c", "tmin_c", "tmean_c"):
+            out[column] = out[column] + delta_t_c
+        out = add_et0(out, lat)
+    return out

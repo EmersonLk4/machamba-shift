@@ -69,3 +69,13 @@ def test_scenario_nature():
     assert scenario_nature("seco") == "modelado"
     assert scenario_nature("ano:2015") == "modelado"
     assert scenario_nature("quente") == "simulado"
+
+
+def test_adjust_climate_is_explicit_and_reversible(clim):
+    from data.scenarios import adjust_climate
+    assert adjust_climate(clim, 0, 0, -24.5) is clim
+    drier = adjust_climate(clim, -20, 1.5, -24.5)
+    assert drier["p_mm"].sum() == pytest.approx(0.8 * clim["p_mm"].sum())
+    assert (drier["tmax_c"] - clim["tmax_c"]).round(6).eq(1.5).all()
+    assert drier["et0_mm"].mean() > clim["et0_mm"].mean()
+    assert clim["p_mm"].sum() > drier["p_mm"].sum()          # o original não foi alterado

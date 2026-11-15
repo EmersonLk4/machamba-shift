@@ -70,6 +70,18 @@ def default_soil(lat: float, lon: float) -> SoilProfile:
                                  load_defaults())
 
 
+SOURCE_FARMER = "indicado pelo agricultor"
+
+
+def soil_for_texture(lat: float, lon: float, texture: str) -> SoilProfile:
+    """Solo com a retenção de água da classe de textura escolhida por quem conhece o terreno."""
+    defaults = load_defaults()
+    if texture not in defaults["textures"]:
+        raise ValueError(f"Textura desconhecida: {texture}")
+    return _with_water_retention(
+        SoilProfile(lat=lat, lon=lon, texture=texture, source=SOURCE_FARMER), defaults)
+
+
 def get_soil(lat: float, lon: float, site_id: str | None = None,
              try_api: bool = False) -> SoilProfile:
     """Solo do ponto. Nunca falha: no pior caso devolve o solo por defeito."""

@@ -70,3 +70,11 @@ def test_api_values_are_used_when_the_service_answers(monkeypatch):
     profile = soil.get_soil(-24.53, 33.0, try_api=True)
     assert profile.ph == pytest.approx(6.2) and profile.clay_pct == pytest.approx(18.0)
     assert profile.texture == "franco_arenoso" and profile.source.startswith("SoilGrids")
+
+
+def test_soil_for_texture_changes_water_storage():
+    from data.soil import SOURCE_FARMER, soil_for_texture
+    sand, clay = soil_for_texture(-24.5, 33.0, "arenoso"), soil_for_texture(-24.5, 33.0, "argiloso")
+    assert sand.source == SOURCE_FARMER and sand.taw_mm_per_m < clay.taw_mm_per_m
+    with pytest.raises(ValueError):
+        soil_for_texture(-24.5, 33.0, "pedra")

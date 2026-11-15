@@ -66,7 +66,8 @@ def test_home_with_climate_tells_the_whole_story(data_home, clim):
     assert not app.exception
     assert not any("Descarregar clima" in button.label for button in app.button)
     headers = [header.value for header in app.header]
-    assert [value for value in headers if value not in ("Local", "O agricultor")] == [
+    assert [value for value in headers
+            if value not in ("Local", "O terreno", "O agricultor")] == [
         "Mapa e tempo", "Solo, ar e vento", "Histórico NASA", "Culturas",
         "Plano para três campanhas", "Perguntas", "Relatório"]
     labels = [metric.label for metric in app.metric]
@@ -79,6 +80,12 @@ def test_home_with_climate_tells_the_whole_story(data_home, clim):
     assert any(name in plan for name in ("Milho", "Mapira", "Mexoeira"))   # um cereal
     scenario = next(box for box in app.selectbox if box.label == "Campanhas a considerar")
     scenario.select("quente").run()
+    assert not app.exception
+    scenario = next(box for box in app.selectbox if box.label == "Campanhas a considerar")
+    scenario.select("ajustar").run()
+    assert not app.exception and any("hipotético" in item.value for item in app.warning)
+    assert {slider.label for slider in app.slider} >= {"Chuva", "Temperatura"}
+    next(box for box in app.selectbox if box.label == "Tipo de solo").select("arenoso").run()
     assert not app.exception
     next(button for button in app.button if button.label.startswith("Secos")).click().run()
     assert not app.exception and app.session_state["months"] == [4, 5, 6, 7, 8, 9]
@@ -135,10 +142,10 @@ def test_home_shows_map_layers_when_the_grid_exists(data_home, clim):
     assert not app.exception
     layer = next(radio for radio in app.radio if radio.label == "Vista")
     assert layer.options[0] == "Aqui (satélite)"
-    assert layer.options[-3] == "Região: Outubro de 2026"
+    assert layer.options[-5] == "Região: Outubro de 2026"
     assert layer.options[-1] == "Desenhar região"
     app.session_state["region"] = [(-25.0, 32.0), (-25.0, 34.0), (-23.0, 34.0), (-23.0, 32.0)]
-    for option in ("normal", "ano", "agora", "solo", "desenhar"):
+    for option in ("normal", "ano", "agora", "solo", "tend_chuva", "tend_temp", "desenhar"):
         layer.set_value(option).run()
         assert not app.exception
     assert "Zonas NASA" in [metric.label for metric in app.metric]

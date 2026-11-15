@@ -151,3 +151,22 @@ def test_region_geometry_and_summary():
     assert small["cells"] == 1 and small["fallback"]
     assert region.region_summary([(0.0, 0.0), (0.0, 1.0), (1.0, 1.0)], seasons, now) is None
     assert np.isfinite(small["area_km2"])
+
+
+def test_grid_trends_only_colour_clear_trends():
+    import numpy as np
+    import pandas as pd
+
+    from data import grid
+    rng = np.random.default_rng(1)
+    rows = []
+    for year in range(1990, 2025):
+        rows.append({"lat": -24.5, "lon": 33.125, "season": year,
+                     "rain_mm": 600 - 5 * (year - 1990) + rng.normal(0, 5), "tmean_c": 25.0})
+        rows.append({"lat": -19.5, "lon": 33.125, "season": year,
+                     "rain_mm": 800 + rng.normal(0, 150), "tmean_c": 24 + 0.03 * (year - 1990)})
+    out = grid.trends(pd.DataFrame(rows)).set_index("lat")
+    assert out.loc[-24.5, "rain_trend"] == pytest.approx(-50, abs=5)
+    assert np.isnan(out.loc[-24.5, "temp_trend"])            # temperatura constante
+    assert np.isnan(out.loc[-19.5, "rain_trend"])            # só ruído
+    assert out.loc[-19.5, "temp_trend"] == pytest.approx(0.3, abs=0.02)

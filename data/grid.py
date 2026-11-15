@@ -150,3 +150,22 @@ def normals(seasons: pd.DataFrame) -> pd.DataFrame:
         seasons="count")
     out["tmean_c"] = grouped["tmean_c"].mean()
     return out.reset_index()
+
+
+def trends(seasons: pd.DataFrame) -> pd.DataFrame:
+    """Por célula: tendência da chuva (mm por década) e da temperatura (°C por década).
+
+    Declive de Sen com teste de Mann-Kendall (data.features.trend). As colunas rain_trend e
+    temp_trend ficam vazias (NaN) onde a tendência não é estatisticamente clara, para o mapa
+    só colorir o que se pode afirmar; rain_slope e temp_slope guardam sempre o declive.
+    """
+    from data.features import trend
+    rows = []
+    for (lat, lon), cell in seasons.sort_values("season").groupby(["lat", "lon"]):
+        rain, temp = trend(cell["rain_mm"]), trend(cell["tmean_c"])
+        rows.append({
+            "lat": lat, "lon": lon, "seasons": int(len(cell)),
+            "rain_slope": 10 * rain["slope"], "temp_slope": 10 * temp["slope"],
+            "rain_trend": 10 * rain["slope"] if rain["significant"] else np.nan,
+            "temp_trend": 10 * temp["slope"] if temp["significant"] else np.nan})
+    return pd.DataFrame(rows)

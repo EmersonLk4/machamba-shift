@@ -62,7 +62,8 @@ def _spacing(values: pd.Series, default: float) -> float:
 
 def add_cells(fmap: folium.Map, cells: pd.DataFrame, value: str, tooltip: str,
               diverging: bool, caption: str, vmin: float, vmax: float,
-              sites: dict | None = None, point: tuple[float, float] | None = None) -> None:
+              sites: dict | None = None, point: tuple[float, float] | None = None,
+              muted: str | None = None) -> None:
     """Desenha um rectângulo por célula, colorido pela coluna `value`.
 
     tooltip é um modelo com nomes de colunas, por exemplo "{rain_normal_mm:.0f} mm".
@@ -71,6 +72,13 @@ def add_cells(fmap: folium.Map, cells: pd.DataFrame, value: str, tooltip: str,
                            caption=caption)
     layer = folium.FeatureGroup(name=caption)
     dlat, dlon = _spacing(cells["lat"], LAT_STEP), _spacing(cells["lon"], LON_STEP)
+    if muted:                                   # células sem valor: cinzentas, com explicação
+        for row in cells[cells[value].isna()].to_dict(orient="records"):
+            folium.Rectangle(
+                bounds=[[row["lat"] - dlat / 2, row["lon"] - dlon / 2],
+                        [row["lat"] + dlat / 2, row["lon"] + dlon / 2]],
+                stroke=False, fill=True, fill_color="#8f8e87", fill_opacity=0.35,
+                tooltip=muted.format(**row)).add_to(layer)
     for row in cells.dropna(subset=[value]).to_dict(orient="records"):
         shown = min(max(row[value], vmin), vmax)
         folium.Rectangle(

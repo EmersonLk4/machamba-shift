@@ -45,10 +45,10 @@ from data.features import (  # noqa: E402
     site_summary,
     trend,
 )
-from data.grid import cell_of, load_grid, normals  # noqa: E402
+from data.grid import cell_of, load_grid, normals, trends  # noqa: E402
 from data.region import polygon_from_geojson, region_summary  # noqa: E402
-from data.scenarios import apply_scenario  # noqa: E402
-from data.soil import get_soil  # noqa: E402
+from data.scenarios import adjust_climate, apply_scenario  # noqa: E402
+from data.soil import get_soil, soil_for_texture  # noqa: E402
 from engine.params import (  # noqa: E402
     load_crops,
     load_economics,
@@ -79,6 +79,7 @@ SCENARIOS = {
     "seco_parametrico": "Se chovesse 20% menos",
     "quente": "Se estivesse 2 °C mais quente",
     "ano": "Uma campanha concreta",
+    "ajustar": "E se... (ajustar chuva e temperatura)",
 }
 
 # --- Escolhas (barra lateral) -------------------------------------------------
@@ -89,11 +90,24 @@ with st.sidebar:
     if "point" not in st.session_state or st.session_state.get("point_site") != site_id:
         st.session_state["point"] = (base_site.lat, base_site.lon)
         st.session_state["point_site"] = site_id
+    st.header("O terreno")
+    textures = {"nao_sei": "Não sei (solo médio)", "arenoso": "Arenoso: solto, seca depressa",
+                "franco_arenoso": "Franco-arenoso", "franco": "Franco: nem solto nem pesado",
+                "franco_argiloso": "Franco-argiloso",
+                "argiloso": "Argiloso: pesado, guarda a água"}
+    texture = st.selectbox("Tipo de solo", list(textures), format_func=textures.get,
+                           help="Muda a quantidade de água que o solo consegue guardar entre "
+                                "chuvas. Um solo arenoso guarda menos, por isso as culturas "
+                                "sofrem mais cedo. Valores típicos por tipo de solo (FAO-56), "
+                                "não uma análise do seu terreno.")
     st.header("O agricultor")
     current = st.selectbox("O que planta hoje", list(NAMES), format_func=NAMES.get,
                            index=list(NAMES).index(base_site.current_crop))
     accepted = st.multiselect("O que aceita plantar", list(NAMES), default=list(NAMES),
-                              format_func=NAMES.get)
+                              format_func=NAMES.get,
+                              help="Retire as culturas que não servem a este agricultor: sem "
+                                   "mercado na zona, sem semente, sem equipamento para as "
+                                   "trabalhar, ou que a família não consome.")
     staple = st.checkbox("Quer pelo menos uma campanha de cereal", value=True,
                          help="Milho, mapira ou mexoeira: o alimento de base da família")
     keep_current = st.checkbox(f"Quer manter {NAMES[current].lower()} pelo menos uma vez",
@@ -169,6 +183,8 @@ if grid is not None:
         views["agora"] = (f"Região: {grid_now['months'].iloc[0]} de "
                           f"{int(grid_now['season'].iloc[0])}")
         views["solo"] = "Região: humidade do solo"
+    views["tend_chuva"] = "Região: tendência da chuva"
+    views["tend_temp"] = "Região: tendência do calor"
     views["desenhar"] = "Desenhar região"
 left, right = st.columns([3, 1])
 view = left.radio("Vista", list(views), format_func=views.get, horizontal=True,
@@ -224,6 +240,20 @@ else:
                   "({pct:.0f}%)",
                   True, "Chuva destes meses face ao normal (%)", 40, 160,
                   sites=sites, point=(lat, lon))
+    elif view == "tend_chuva":
+        add_cells(fmap, trends(grid_seasons), "rain_trend",
+                  "A chuva das campanhas mudou {rain_trend:+.0f} mm por década desde 1990",
+                  True, "Tendência da chuva de Outubro a Abril (mm por década)", -60, 60,
+                  sites=sites, point=(lat, lon),
+                  muted="Sem tendência clara: a variação entre anos é maior do que qualquer "
+                        "mudança gradual ({rain_slope:+.0f} mm por década, não significativo)")
+    elif view == "tend_temp":
+        add_cells(fmap, trends(grid_seasons), "temp_trend",
+                  "A temperatura das campanhas mudou {temp_trend:+.2f} °C por década desde 1990",
+                  False, "Tendência da temperatura de Outubro a Abril (°C por década)", 0, 0.5,
+                  sites=sites, point=(lat, lon),
+                  muted="Sem tendência clara ({temp_slope:+.2f} °C por década, não "
+                        "significativo)")
     else:
         now = grid_now.copy()
         now["wet"] = 100 * now["gwet_latest"]
@@ -331,7 +361,8 @@ else:
 table = season_table(clim, rules)
 summary = site_summary(table)
 source = str(clim["source"].iloc[0])
-soil = get_soil(lat, lon, site_id=site_id if is_demo_point else None)
+soil = (get_soil(lat, lon, site_id=site_id if is_demo_point else None) if texture == "nao_sei"
+        else soil_for_texture(lat, lon, texture))
 done = table[table["complete"]]
 rain_trend, temp_trend = trend(done["rain_mm"]), trend(done["tmean_c"])
 
@@ -424,12 +455,26 @@ if choice == "ano":
                            format_func=lambda y: f"{y}/{str(y + 1)[-2:]}")
     scenario = f"ano:{year}"
 
+engine_clim = clim
+if choice == "ajustar":
+    scenario = "historico"
+    left, right = st.columns(2)
+    rain_pct = left.slider("Chuva", -40, 20, -10, 5, format="%d%%",
+                           help="Multiplica a chuva de todos os dias por este valor. Os dias "
+                                "em que choveu ficam os mesmos do passado.")
+    delta_t = right.slider("Temperatura", 0.0, 3.0, 1.0, 0.5, format="+%.1f °C",
+                           help="Soma este valor às temperaturas de todos os dias; o ar mais "
+                                "quente retira mais água ao solo.")
+    engine_clim = adjust_climate(clim, rain_pct, delta_t, lat)
+    st.warning(f"Cenário hipotético, não uma previsão: as {SCENARIOS['historico'].lower()}, "
+               f"com {rain_pct:+d}% de chuva e {delta_t:+.1f} °C.")
+
 site = replace(base_site, lat=lat, lon=lon, sow_month=int(sow_month), sow_day=int(sow_day),
                current_crop=current, name=place)
 constraints = Constraints(required={current} if keep_current and current in accepted else set(),
                           require_staple=staple)
 try:
-    result = recommend(site, clim, soil, accepted, sliders, rules, scenario=scenario,
+    result = recommend(site, engine_clim, soil, accepted, sliders, rules, scenario=scenario,
                        constraints=constraints, current_crop=current, catalogue=catalogue,
                        economics=load_economics())
 except ValueError as error:
@@ -439,8 +484,8 @@ except ValueError as error:
 stats = result.crop_stats
 safest = min(stats, key=lambda key: (stats[key]["p_stress"], stats[key]["p_failure"]))
 today_crop = stats[current]
-window = sowing_window(apply_scenario(clim, scenario, rules, lat), catalogue[current], soil,
-                       site, rules, load_engine_defaults())
+window = sowing_window(apply_scenario(engine_clim, scenario, rules, lat), catalogue[current],
+                       soil, site, rules, load_engine_defaults())
 best_date = min(window, key=lambda key: (window[key]["p_stress"], window[key]["p_failure"]))
 
 st.markdown(
@@ -526,6 +571,11 @@ with st.expander("Comparar com as alternativas"):
                 "diferenças abaixo de 0,01 não são significativas.")),
         })
 
+st.info("**Esta ferramenta apoia a decisão; não a toma.** O seu conhecimento conta mais do que "
+        "estes números em tudo o que ela não vê: pragas e doenças, o solo de cada talhão, "
+        "a semente e a mão-de-obra disponíveis, os preços no mercado local e o que a família "
+        "precisa de comer. Discuta o plano com o extensionista antes de mudar o que planta.")
+
 with st.expander("O que esta ferramenta não sabe"):
     for flag in result.flags:
         st.markdown(f"- {flag}")
@@ -582,14 +632,17 @@ else:
     answer = ("Não. A ferramenta mostra o que aconteceu a cada cultura nas campanhas reais "
               "desde 1990 e escolhe o plano que mais vezes se saiu bem. Testámos se o início "
               "da campanha permitia antecipar o resto e não permite: a relação é nula nos "
-              "locais analisados.")
+              "locais analisados. Para a previsão sazonal oficial, consulte o Instituto "
+              "Nacional de Meteorologia (INAM).")
 st.info(answer)
 
 # --- Relatório ----------------------------------------------------------------------------
 section(7, "Exportar", "Relatório", "relatorio",
         help="Uma página com o plano, o risco de cada cultura, as datas de sementeira e os "
                "limites, para imprimir ou enviar. Abre em qualquer navegador.")
-args = (place, lat, lon, summary, result, NAMES, recent, window, current, source)
+label = source if choice != "ajustar" else (
+    f"{source}, cenário hipotético com {rain_pct:+d}% de chuva e {delta_t:+.1f} °C")
+args = (place, lat, lon, summary, result, NAMES, recent, window, current, label)
 stem = f"machamba-shift-{place.lower().replace(' ', '-')}"
 left, right, _ = st.columns([1, 1, 2])
 left.download_button("Relatório em PDF", build_pdf(*args), file_name=f"{stem}.pdf",
